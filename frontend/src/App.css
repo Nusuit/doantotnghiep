@@ -1,0 +1,181 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+.app {
+  @apply min-h-screen flex flex-col bg-gray-50;
+}
+
+.main-content {
+  @apply flex-1;
+}
+
+/* Page Layouts */
+.page-container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+}
+
+.page-container-sm {
+  @apply max-w-3xl mx-auto px-4 sm:px-6 py-8;
+}
+
+/* Hero Section Specific */
+.hero {
+  @apply relative overflow-hidden;
+}
+
+.hero::before {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-r from-primary-500/5 to-accent-500/5;
+}
+
+/* Features Grid */
+.features-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8;
+}
+
+.feature-card {
+  @apply group;
+}
+
+.feature-card:hover .feature-icon {
+  @apply scale-110 transform transition-transform duration-200;
+}
+
+/* Reviews Grid */
+.reviews-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+/* Stats Grid */
+.stats-grid {
+  @apply grid grid-cols-1 md:grid-cols-3 gap-6 mb-16;
+}
+
+/* Form Container */
+.form-container {
+  @apply max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg;
+}
+
+/* Empty State */
+.empty-state {
+  @apply text-center py-16 px-4;
+}
+
+.empty-state-icon {
+  @apply text-8xl text-gray-300 mb-6;
+}
+
+.empty-state-title {
+  @apply text-2xl font-semibold text-gray-700 mb-4;
+}
+
+.empty-state-description {
+  @apply text-lg text-gray-500 mb-8 max-w-lg mx-auto leading-relaxed;
+}
+
+/* Card Enhancements */
+.review-card:hover {
+  @apply shadow-xl -translate-y-1 border-primary-200;
+}
+
+.review-card .review-location {
+  @apply flex items-center text-primary-600 font-medium;
+}
+
+.review-card .review-location::before {
+  content: '📍';
+  @apply mr-2;
+}
+
+/* Button Enhancements */
+.btn-primary {
+  @apply shadow-glow hover:shadow-lg transform hover:-translate-y-0.5;
+}
+
+.btn-accent {
+  @apply bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700;
+}
+
+/* Loading States */
+.loading-container {
+  @apply flex flex-col items-center justify-center py-16;
+}
+
+.loading-text {
+  @apply text-gray-500 mt-4;
+}
+
+/* Animations */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .reviews-grid {
+    @apply grid-cols-1 gap-4;
+  }
+
+  .features-grid {
+    @apply grid-cols-1 gap-6;
+  }
+
+  .stats-grid {
+    @apply grid-cols-1 gap-4;
+  }
+}
