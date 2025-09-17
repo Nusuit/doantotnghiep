@@ -1,199 +1,394 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Search, Send, Calendar, Coffee, MapPin, ArrowLeft, MessageCircle } from 'lucide-react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { 
+  Search, 
+  Paperclip,
+  MapPin,
+  Mic,
+  BookOpen,
+  Brain,
+  GraduationCap,
+  BookMarked,
+  Send,
+  Plus
+} from 'lucide-react'
+import Sidebar from '../../components/Sidebar'
+
+interface Message {
+  id: string
+  text: string
+  isUser: boolean
+  timestamp: Date
+}
+
+interface Conversation {
+  id: string
+  title: string
+  preview: string
+  timestamp: Date
+  messageCount: number
+  messages: Message[]
+}
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Array<{text: string, isUser: boolean}>>([])
-  const [input, setInput] = useState('')
-  const router = useRouter()
-  const searchParams = useSearchParams()
+  const [inputValue, setInputValue] = useState('')
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
+  const [isTyping, setIsTyping] = useState(false)
+  const [isChatMode, setIsChatMode] = useState(false)
+  const [hasNotifications] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const q = searchParams.get('q')
-    if (q && messages.length === 0) {
-      setMessages([{text: q, isUser: true}])
-    }
-  }, [searchParams, messages.length])
+  const currentConversation = conversations.find(c => c.id === currentConversationId)
+  const messages = useMemo(() => currentConversation?.messages || [], [currentConversation])
 
-  function send() {
-    const v = input.trim()
-    if (!v) return
-    setMessages((m) => [...m, {text: v, isUser: true}])
-    setInput('')
-    
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages((m) => [...m, {text: `Tôi hiểu bạn muốn hỏi về "${v}". Đây là một câu hỏi thú vị! Tôi sẽ giúp bạn tìm hiểu thêm về vấn đề này.`, isUser: false}])
-    }, 1000)
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const quickActions = [
-    { icon: Calendar, label: 'Lên lịch trình', color: 'from-blue-500 to-blue-600' },
-    { icon: Coffee, label: 'Gợi ý quán ăn', color: 'from-amber-500 to-orange-500' },
-    { icon: MapPin, label: 'Gợi ý cafe', color: 'from-emerald-500 to-teal-500' },
-    { icon: Search, label: 'Tìm kiếm', color: 'from-purple-500 to-indigo-500' }
-  ]
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, isTyping])
+
+  const generateConversationTitle = (firstMessage: string) => {
+    return firstMessage.length > 50 
+      ? firstMessage.substring(0, 50) + '...'
+      : firstMessage
+  }
+
+  const createNewConversation = () => {
+    const newId = Date.now().toString()
+    const newConversation: Conversation = {
+      id: newId,
+      title: 'Cuộc trò chuyện mới',
+      preview: 'Bắt đầu cuộc trò chuyện...',
+      timestamp: new Date(),
+      messageCount: 0,
+      messages: []
+    }
+    
+    setConversations(prev => [newConversation, ...prev])
+    setCurrentConversationId(newId)
+    setIsChatMode(false)
+  }
+
+  const selectConversation = (id: string) => {
+    setCurrentConversationId(id)
+    const conversation = conversations.find(c => c.id === id)
+    if (conversation && conversation.messages.length > 0) {
+      setIsChatMode(true)
+    } else {
+      setIsChatMode(false)
+    }
+  }
+
+  const deleteConversation = (id: string) => {
+    setConversations(prev => prev.filter(c => c.id !== id))
+    if (currentConversationId === id) {
+      setCurrentConversationId(null)
+      setIsChatMode(false)
+    }
+  }
+
+  const handleQuickAction = (suggestion: string) => {
+    setInputValue(suggestion)
+    // Optionally focus the input field
+    setTimeout(() => {
+      const inputElement = document.querySelector('input[type="text"]') as HTMLInputElement
+      if (inputElement) {
+        inputElement.focus()
+      }
+    }, 100)
+  }
+
+  const handleSend = async () => {
+    if (inputValue.trim()) {
+      let conversationId = currentConversationId
+
+      // Create new conversation if none exists
+      if (!conversationId) {
+        conversationId = Date.now().toString()
+        const newConversation: Conversation = {
+          id: conversationId,
+          title: generateConversationTitle(inputValue.trim()),
+          preview: inputValue.trim(),
+          timestamp: new Date(),
+          messageCount: 0,
+          messages: []
+        }
+        setConversations(prev => [newConversation, ...prev])
+        setCurrentConversationId(conversationId)
+      }
+
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        text: inputValue.trim(),
+        isUser: true,
+        timestamp: new Date()
+      }
+      
+      // Update conversation with new message
+      setConversations(prev => prev.map(conv => {
+        if (conv.id === conversationId) {
+          const updatedMessages = [...conv.messages, userMessage]
+          return {
+            ...conv,
+            messages: updatedMessages,
+            messageCount: updatedMessages.length,
+            timestamp: new Date(),
+            title: conv.title === 'Cuộc trò chuyện mới' ? generateConversationTitle(userMessage.text) : conv.title,
+            preview: userMessage.text
+          }
+        }
+        return conv
+      }))
+
+      setInputValue('')
+      setIsChatMode(true)
+      setIsTyping(true)
+      
+      // Simulate bot response
+      setTimeout(() => {
+        const botMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: `Cảm ơn bạn đã hỏi về "${userMessage.text}". Tôi đang phát triển để có thể trả lời tốt hơn về ẩm thực Việt Nam!`,
+          isUser: false,
+          timestamp: new Date()
+        }
+        
+        setConversations(prev => prev.map(conv => {
+          if (conv.id === conversationId) {
+            const updatedMessages = [...conv.messages, botMessage]
+            return {
+              ...conv,
+              messages: updatedMessages,
+              messageCount: updatedMessages.length,
+              timestamp: new Date()
+            }
+          }
+          return conv
+        }))
+        
+        setIsTyping(false)
+      }, 1500)
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,_rgba(255,255,255,0.15)_1px,_transparent_0)] bg-[length:20px_20px] opacity-20"></div>
-      
-      <div className="relative flex min-h-screen">
-        <div className="fixed left-0 top-0 h-full w-80 bg-white/5 backdrop-blur-xl border-r border-white/10 p-8">
-          <div className="flex flex-col h-full">
-            <div className="mb-12">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
-                  <Search className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
-                    Tri Thức
-                  </h1>
-                  <p className="text-sm text-white/60 font-medium">Vị Giác Pro</p>
-                </div>
+    <div className="flex h-screen bg-white">
+      {/* Sidebar */}
+      <Sidebar
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        hasNotifications={hasNotifications}
+        onSelectConversation={selectConversation}
+        onDeleteConversation={deleteConversation}
+        onNewConversation={createNewConversation}
+      />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {!isChatMode ? (
+          // Landing Page
+          <div className="flex-1 flex flex-col items-center justify-center px-8">
+            <div className="max-w-2xl w-full">
+              {/* Logo */}
+              <div className="text-center mb-12">
+                <h1 className="text-4xl font-light text-gray-900 mb-2">
+                  Trợ lý ảo Tri Thức Vị Giác
+                </h1>
               </div>
-            </div>
 
-            <nav className="space-y-3 flex-1">
-              <div className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-6">
-                Khám phá
-              </div>
-              
-              <button
-                onClick={() => router.push('/')}
-                className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200 flex items-center space-x-3"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span>🏠 Trang chủ</span>
-              </button>
-              
-              <button className="w-full text-left px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 transition-all duration-200 border border-white/5 hover:border-white/20 flex items-center space-x-3">
-                <MessageCircle className="w-5 h-5" />
-                <span>💬 Trò chuyện</span>
-              </button>
-              
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                📚 Thư viện
-              </button>
-              
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                ⭐ Yêu thích
-              </button>
-              
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                📊 Thống kê
-              </button>
-            </nav>
-
-            <div className="border-t border-white/10 pt-6 space-y-3">
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                ⚙️ Cài đặt
-              </button>
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                ❓ Trợ giúp
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 ml-80 p-12">
-          <div className="max-w-4xl mx-auto h-full flex flex-col">
-            {messages.length === 0 ? (
-              <>
-                <div className="text-center mb-16">
-                  <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-white via-white/90 to-white/70 bg-clip-text text-transparent leading-tight">
-                    Bắt đầu cuộc trò chuyện
-                    <span className="block text-4xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mt-2">
-                      với AI thông minh
-                    </span>
-                  </h2>
-                  <p className="text-xl text-white/70 max-w-2xl mx-auto leading-relaxed">
-                    Hỏi bất cứ điều gì bạn muốn biết. AI sẽ trả lời chi tiết và chính xác.
-                  </p>
-                </div>
-
-                <div className="relative mb-16">
-                  <div className="relative max-w-3xl mx-auto">
+              {/* Search Bar */}
+              <div className="relative mb-8">
+                <div className="bg-white border border-gray-300 rounded-3xl shadow-lg focus-within:border-gray-400 focus-within:shadow-xl transition-all">
+                  <div className="flex items-center px-6 py-4">
                     <input
                       type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && send()}
-                      placeholder="Hỏi bất cứ điều gì..."
-                      className="w-full px-8 py-6 text-lg bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-300"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="hỏi bất kì điều gì về ẩm thực Việt Nam..."
+                      className="flex-1 text-lg text-gray-900 placeholder-gray-400 border-none outline-none"
                     />
-                    <button
-                      onClick={send}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl text-white transition-all duration-200 hover:scale-105"
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mb-16">
-                  <h3 className="text-2xl font-bold text-white/90 mb-8 text-center">
-                    Hành động nhanh
-                  </h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                    {quickActions.map((action, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setInput(action.label)}
-                        className="group relative overflow-hidden bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:border-white/20"
-                      >
-                        <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                          <action.icon className="w-6 h-6 text-white" />
-                        </div>
-                        <h4 className="font-semibold text-white/90 text-left">
-                          {action.label}
-                        </h4>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex-1 overflow-y-auto mb-8 space-y-6">
-                  {messages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] px-6 py-4 rounded-2xl ${
-                        msg.isUser 
-                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white' 
-                          : 'bg-white/10 backdrop-blur-sm border border-white/10 text-white/90'
-                      }`}>
-                        <p className="text-lg leading-relaxed">{msg.text}</p>
-                      </div>
+                    
+                    {/* Toolbar Icons */}
+                    <div className="flex items-center space-x-3 ml-4">
+                      {!inputValue.trim() ? (
+                        <>
+                          <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
+                            <Search className="w-5 h-5" />
+                          </button>
+                          <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
+                            <Paperclip className="w-5 h-5" />
+                          </button>
+                          <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
+                            <MapPin className="w-5 h-5" />
+                          </button>
+                          <button className="p-2 text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-all">
+                            <Mic className="w-5 h-5" />
+                          </button>
+                        </>
+                      ) : (
+                        <button 
+                          onClick={handleSend}
+                          className="p-2 text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-all"
+                        >
+                          <Send className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
-                  ))}
-                </div>
-
-                <div className="relative">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && send()}
-                      placeholder="Tiếp tục cuộc trò chuyện..."
-                      className="w-full px-8 py-6 text-lg bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-300"
-                    />
-                    <button
-                      onClick={send}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl text-white transition-all duration-200 hover:scale-105"
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
                   </div>
                 </div>
-              </>
-            )}
+              </div>
+
+              {/* Quick Action Buttons */}
+              <div className="flex flex-wrap gap-3 justify-center">
+                <button 
+                  onClick={() => handleQuickAction("Tôi muốn tìm món ăn ngon")}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
+                >
+                  <BookOpen className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm text-gray-700">Tìm món ăn</span>
+                </button>
+                
+                <button 
+                  onClick={() => handleQuickAction("Gợi ý cho tôi một địa điểm ăn uống thú vị")}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
+                >
+                  <Brain className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm text-gray-700">Gợi ý địa điểm</span>
+                </button>
+                
+                <button 
+                  onClick={() => handleQuickAction("Tôi muốn xem đánh giá của địa điểm")}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
+                >
+                  <GraduationCap className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm text-gray-700">Đánh giá review</span>
+                </button>
+                
+                <button 
+                  onClick={() => handleQuickAction("Lên lịch trình ăn uống cho chuyến đi")}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
+                >
+                  <BookMarked className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm text-gray-700">Lên plan</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          // Chat Interface
+          <div className="flex-1 flex flex-col">
+            {/* Chat Header */}
+            <div className="border-b border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {currentConversation?.title || 'Trợ lý ảo Tri Thức Vị Giác'}
+                </h2>
+                <button 
+                  onClick={createNewConversation}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+                      message.isUser
+                        ? 'bg-teal-600 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                    }`}
+                  >
+                    <p className="text-sm">{message.text}</p>
+                    <p className={`text-xs mt-1 ${
+                      message.isUser ? 'text-teal-100' : 'text-gray-500'
+                    }`}>
+                      {message.timestamp.toLocaleTimeString('vi-VN', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Typing Indicator */}
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 text-gray-900 max-w-xs lg:max-w-md px-4 py-2 rounded-2xl">
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <div className="border-t border-gray-200 p-4">
+              <div className="bg-white border border-gray-300 rounded-2xl shadow-sm focus-within:border-gray-400 transition-all">
+                <div className="flex items-center px-4 py-3">
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="hỏi bất kì điều gì về ẩm thực Việt Nam..."
+                    className="flex-1 text-sm text-gray-900 placeholder-gray-400 border-none outline-none"
+                  />
+                  
+                  <div className="flex items-center space-x-2 ml-3">
+                    {!inputValue.trim() ? (
+                      <>
+                        <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
+                          <Search className="w-4 h-4" />
+                        </button>
+                        <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
+                          <Paperclip className="w-4 h-4" />
+                        </button>
+                        <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
+                          <MapPin className="w-4 h-4" />
+                        </button>
+                        <button className="p-1.5 text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-all">
+                          <Mic className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={handleSend}
+                        className="p-1.5 text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-all"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

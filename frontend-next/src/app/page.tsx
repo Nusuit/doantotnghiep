@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Coffee, MapPin, Search, Send } from 'lucide-react'
+import { Calendar, Coffee, MapPin, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -14,155 +14,105 @@ export default function Home() {
     }
   }
 
-  const quickActions = [
-    { icon: Calendar, label: 'Lên lịch trình', color: 'from-blue-500 to-blue-600' },
-    { icon: Coffee, label: 'Gợi ý quán ăn', color: 'from-amber-500 to-orange-500' },
-    { icon: MapPin, label: 'Gợi ý cafe', color: 'from-emerald-500 to-teal-500' },
-    { icon: Search, label: 'Tìm kiếm', color: 'from-purple-500 to-indigo-500' }
-  ]
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch()
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,_rgba(255,255,255,0.15)_1px,_transparent_0)] bg-[length:20px_20px] opacity-20"></div>
-      
-      <div className="relative flex min-h-screen">
-        <div className="fixed left-0 top-0 h-full w-80 bg-white/5 backdrop-blur-xl border-r border-white/10 p-8">
-          <div className="flex flex-col h-full">
-            <div className="mb-12">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
-                  <Search className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
-                    Tri Thức
-                  </h1>
-                  <p className="text-sm text-white/60 font-medium">Vị Giác Pro</p>
-                </div>
+    <div className="min-h-screen bg-gray-50 font-sans">
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
+                <Search className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Tri Thức</h1>
+                <p className="text-sm text-gray-600">Vị Giác Pro</p>
               </div>
             </div>
+            <button 
+              onClick={() => router.push('/chat')}
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors text-sm font-medium"
+            >
+              Bắt đầu Chat
+            </button>
+          </div>
+        </div>
+      </div>
 
-            <nav className="space-y-3 flex-1">
-              <div className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-6">
-                Khám phá
-              </div>
-              
+      <div className="max-w-4xl mx-auto px-4 py-16">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Trợ lý AI cho
+            <br />
+            <span className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+              Ẩm thực Việt Nam
+            </span>
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Khám phá những nhà hàng tuyệt vời nhất và lên kế hoạch cho hành trình ẩm thực của bạn
+          </p>
+        </div>
+
+        <div className="mb-12">
+          <div className="bg-white border border-gray-300 rounded-2xl shadow-lg focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-all">
+            <div className="flex items-center p-4">
+              <Search className="w-6 h-6 text-gray-400 mr-4" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Hỏi về món ăn Việt Nam, nhà hàng, hoặc ẩm thực..."
+                className="flex-1 text-lg text-gray-800 placeholder-gray-400 border-0 focus:ring-0 focus:outline-none"
+              />
               <button
-                onClick={() => router.push('/chat')}
-                className="w-full text-left px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 transition-all duration-200 border border-white/5 hover:border-white/20"
+                onClick={handleSearch}
+                disabled={!query.trim()}
+                className={`ml-4 px-6 py-2 rounded-xl transition-all ${
+                  query.trim()
+                    ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow-md'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
               >
-                💬 Trò chuyện
-              </button>
-              
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                📚 Thư viện
-              </button>
-              
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                ⭐ Yêu thích
-              </button>
-              
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                📊 Thống kê
-              </button>
-            </nav>
-
-            <div className="border-t border-white/10 pt-6 space-y-3">
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                ⚙️ Cài đặt
-              </button>
-              <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-200">
-                ❓ Trợ giúp
+                Tìm kiếm
               </button>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 ml-80 p-12">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-white via-white/90 to-white/70 bg-clip-text text-transparent leading-tight">
-                Chào mừng đến với
-                <span className="block text-6xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mt-2">
-                  Tri Thức Vị Giác Pro
-                </span>
-              </h2>
-              <p className="text-xl text-white/70 max-w-2xl mx-auto leading-relaxed">
-                Trải nghiệm AI thông minh, tìm kiếm thông tin chính xác và nhận được câu trả lời chi tiết cho mọi thắc mắc của bạn.
+        <div className="text-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="p-6">
+              <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <MapPin className="w-6 h-6 text-teal-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Khám phá nhà hàng</h3>
+              <p className="text-gray-600 text-sm">
+                Tìm những nhà hàng địa phương tuyệt nhất và các địa điểm ẩn giấu ở Việt Nam
               </p>
             </div>
-
-            <div className="relative mb-16">
-              <div className="relative max-w-3xl mx-auto">
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Hỏi bất cứ điều gì..."
-                  className="w-full px-8 py-6 text-lg bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-300"
-                />
-                <button
-                  onClick={handleSearch}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl text-white transition-all duration-200 hover:scale-105"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+            <div className="p-6">
+              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <Coffee className="w-6 h-6 text-emerald-600" />
               </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Gợi ý món ăn</h3>
+              <p className="text-gray-600 text-sm">
+                Nhận những đề xuất cá nhân hóa dựa trên sở thích của bạn
+              </p>
             </div>
-
-            <div className="mb-16">
-              <h3 className="text-2xl font-bold text-white/90 mb-8 text-center">
-                Hành động nhanh
-              </h3>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                {quickActions.map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setQuery(action.label)}
-                    className="group relative overflow-hidden bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:border-white/20"
-                  >
-                    <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                      <action.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <h4 className="font-semibold text-white/90 text-left">
-                      {action.label}
-                    </h4>
-                  </button>
-                ))}
+            <div className="p-6">
+              <div className="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-6 h-6 text-cyan-600" />
               </div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4">
-                  <span className="text-2xl">🚀</span>
-                </div>
-                <h3 className="text-xl font-bold text-white/90 mb-3">Trả lời nhanh</h3>
-                <p className="text-white/70 leading-relaxed">
-                  Nhận câu trả lời chi tiết và chính xác trong vài giây với công nghệ AI tiên tiến.
-                </p>
-              </div>
-
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mb-4">
-                  <span className="text-2xl">🎯</span>
-                </div>
-                <h3 className="text-xl font-bold text-white/90 mb-3">Kết quả chính xác</h3>
-                <p className="text-white/70 leading-relaxed">
-                  Thông tin được kiểm chứng từ nhiều nguồn đáng tin cậy để đảm bảo độ chính xác cao nhất.
-                </p>
-              </div>
-
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mb-4">
-                  <span className="text-2xl">💡</span>
-                </div>
-                <h3 className="text-xl font-bold text-white/90 mb-3">Gợi ý thông minh</h3>
-                <p className="text-white/70 leading-relaxed">
-                  AI hiểu ngữ cảnh và đưa ra những gợi ý phù hợp cho từng tình huống cụ thể.
-                </p>
-              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Lập kế hoạch ẩm thực</h3>
+              <p className="text-gray-600 text-sm">
+                Lên kế hoạch hành trình ẩm thực và trải nghiệm ăn uống của bạn
+              </p>
             </div>
           </div>
         </div>
