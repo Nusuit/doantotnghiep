@@ -58,18 +58,8 @@ export default function ChatPage() {
   }
 
   const createNewConversation = () => {
-    const newId = Date.now().toString()
-    const newConversation: Conversation = {
-      id: newId,
-      title: 'Cuộc trò chuyện mới',
-      preview: 'Bắt đầu cuộc trò chuyện...',
-      timestamp: new Date(),
-      messageCount: 0,
-      messages: []
-    }
-    
-    setConversations(prev => [newConversation, ...prev])
-    setCurrentConversationId(newId)
+    // Reset to landing page without creating empty conversation
+    setCurrentConversationId(null)
     setIsChatMode(false)
   }
 
