@@ -1,0 +1,226 @@
+-- SCHEMA
+CREATE DATABASE IF NOT EXISTS knowledge
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE knowledge;
+
+-- USERS
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL DEFAULT '',
+  name VARCHAR(100) NOT NULL,
+  is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  profile_picture_url VARCHAR(191) NULL,
+  last_login_at TIMESTAMP NULL,
+  account_status ENUM('active','suspended','banned','pending') NOT NULL DEFAULT 'active',
+  two_factor_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ROLES (master), USER_ROLES (pivot)
+CREATE TABLE IF NOT EXISTS roles (
+  id SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `key` VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS user_roles (
+  user_id BIGINT UNSIGNED NOT NULL,
+  role_id SMALLINT UNSIGNED NOT NULL,
+  PRIMARY KEY (user_id, role_id),
+  CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- REFRESH TOKENS
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token CHAR(64) NOT NULL UNIQUE,
+  revoked BOOLEAN NOT NULL DEFAULT FALSE,
+  replaced_by CHAR(64) NULL,
+  expires_at TIMESTAMP NOT NULL,
+  user_agent VARCHAR(255) NULL,
+  ip VARCHAR(64) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_rt_user (user_id),
+  INDEX idx_rt_token (token),
+  CONSTRAINT fk_rt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- AUDIT LOGS
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NULL,
+  `type` VARCHAR(50) NOT NULL,
+  action VARCHAR(50) NOT NULL,
+  path VARCHAR(255) NULL,
+  method VARCHAR(10) NULL,
+  ip VARCHAR(64) NULL,
+  user_agent VARCHAR(255) NULL,
+  correlation_id CHAR(36) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_audit_user (user_id),
+  CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- EMAIL VERIFICATIONS
+CREATE TABLE IF NOT EXISTS email_verifications (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token CHAR(64) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ev_user (user_id),
+  CONSTRAINT fk_ev_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- PASSWORD RESETS
+CREATE TABLE IF NOT EXISTS password_resets (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token CHAR(64) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_pr_user (user_id),
+  CONSTRAINT fk_pr_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- CONTENT (articles) & places (tối thiểu để liên kết unlocks)
+CREATE TABLE IF NOT EXISTS articles (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  author_id BIGINT UNSIGNED NOT NULL,
+  title VARCHAR(191) NOT NULL,
+  slug VARCHAR(191) NOT NULL UNIQUE,
+  visibility ENUM('public','unlisted','premium') NOT NULL DEFAULT 'public',
+  is_premium BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_articles_author (author_id),
+  CONSTRAINT fk_articles_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS places (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(191) NOT NULL,
+  lat DOUBLE NULL,
+  lng DOUBLE NULL,
+  article_id BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_places_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- HOLDS (giữ chỗ review)
+CREATE TABLE IF NOT EXISTS holds (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  place_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('active','released','expired') NOT NULL DEFAULT 'active',
+  started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  released_at TIMESTAMP NULL,
+  expires_at TIMESTAMP NULL,
+  INDEX idx_holds_user (user_id),
+  INDEX idx_holds_place (place_id),
+  CONSTRAINT fk_holds_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_holds_place FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- LEDGER / WALLET (tối thiểu để unlocks & giao dịch)
+CREATE TABLE IF NOT EXISTS ledger_accounts (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(191) NOT NULL,
+  type ENUM('user_wallet','platform_fee','platform_revenue','author_income','escrow') NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS user_wallet_accounts (
+  user_id BIGINT UNSIGNED NOT NULL,
+  account_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, account_id),
+  CONSTRAINT fk_uwa_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_uwa_account FOREIGN KEY (account_id) REFERENCES ledger_accounts(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS fee_rules (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  percent_bps INT NULL,
+  min_cents BIGINT NULL,
+  max_cents BIGINT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS coin_transactions (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  kind ENUM('deposit','withdraw','tip','unlock','purchase','refund','adjustment') NOT NULL,
+  status ENUM('pending','posted','failed','reversed','cancelled') NOT NULL DEFAULT 'pending',
+  actor_user_id BIGINT UNSIGNED NULL,
+  source_account_id BIGINT UNSIGNED NULL,
+  dest_account_id BIGINT UNSIGNED NULL,
+  amount_cents BIGINT NOT NULL,
+  fee_cents BIGINT NULL,
+  correlation_id CHAR(36) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  posted_at TIMESTAMP NULL,
+  fail_reason VARCHAR(255) NULL,
+  INDEX idx_tx_actor (actor_user_id),
+  INDEX idx_tx_src (source_account_id),
+  INDEX idx_tx_dest (dest_account_id),
+  CONSTRAINT fk_tx_actor FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_tx_src FOREIGN KEY (source_account_id) REFERENCES ledger_accounts(id) ON DELETE SET NULL,
+  CONSTRAINT fk_tx_dest FOREIGN KEY (dest_account_id) REFERENCES ledger_accounts(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS journal_entries (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tx_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_je_tx (tx_id),
+  CONSTRAINT fk_je_tx FOREIGN KEY (tx_id) REFERENCES coin_transactions(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS postings (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  entry_id BIGINT UNSIGNED NOT NULL,
+  account_id BIGINT UNSIGNED NOT NULL,
+  amount_cents BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_post_entry (entry_id),
+  INDEX idx_post_account (account_id),
+  CONSTRAINT fk_post_entry FOREIGN KEY (entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+  CONSTRAINT fk_post_account FOREIGN KEY (account_id) REFERENCES ledger_accounts(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+-- UNLOCKS (mở khóa bài viết premium)
+CREATE TABLE IF NOT EXISTS unlocks (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  article_id BIGINT UNSIGNED NOT NULL,
+  price_cents INT NOT NULL,
+  tx_id BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_unlocks_user (user_id),
+  INDEX idx_unlocks_article (article_id),
+  CONSTRAINT fk_unlocks_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_unlocks_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_unlocks_tx FOREIGN KEY (tx_id) REFERENCES coin_transactions(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- IDEMPOTENCY KEYS (phòng double submit)
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+  `key` VARCHAR(100) PRIMARY KEY,
+  first_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  request_hash CHAR(64) NOT NULL,
+  response_hash CHAR(64) NULL,
+  status VARCHAR(32) NOT NULL,
+  expires_at TIMESTAMP NULL
+) ENGINE=InnoDB;

@@ -1,0 +1,34 @@
+/* Global styles - Tối giản chỉ chứa những gì Tailwind không làm được */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset và base styles */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Custom CSS variables chỉ cho những gì cần thiết */
+:root {
+  --shadow-auth-card: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Component overrides - Chỉ những gì không thể làm với Tailwind */
+.auth-card-shadow {
+  box-shadow: var(--shadow-auth-card);
+}

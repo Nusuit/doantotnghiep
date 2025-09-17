@@ -1,0 +1,151 @@
+// Updated Prisma schema with split user authentication and profile tables
+// This replaces the monolithic user table with normalized structure
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"  // Changed from postgresql to mysql based on your SQL files
+  url      = env("DATABASE_URL")
+}
+
+// User Authentication - Security and login data only
+model UserAuthentication {
+  id                           Int       @id @default(autoincrement()) @map("id")
+  email                        String    @unique @db.VarChar(255)
+  passwordHash                 String    @map("password_hash") @db.VarChar(255)
+  isEmailVerified             Boolean   @default(false) @map("is_email_verified")
+  lastLoginAt                 DateTime? @map("last_login_at")
+  accountStatus               AccountStatus @default(ACTIVE) @map("account_status")
+  twoFactorEnabled            Boolean   @default(false) @map("two_factor_enabled")
+  
+  // Additional security fields
+  loginAttempts               Int       @default(0) @map("login_attempts") @db.TinyInt
+  lockedUntil                 DateTime? @map("locked_until")
+  passwordResetToken          String?   @map("password_reset_token") @db.VarChar(255)
+  passwordResetExpiresAt      DateTime? @map("password_reset_expires_at")
+  emailVerificationToken      String?   @map("email_verification_token") @db.VarChar(255)
+  emailVerificationExpiresAt  DateTime? @map("email_verification_expires_at")
+  
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  profile                     UserProfile?
+  refreshTokens               RefreshToken[]
+  roles                       UserRole[]
+  
+  @@index([email], map: "idx_ua_email")
+  @@index([accountStatus], map: "idx_ua_account_status")  
+  @@index([passwordResetToken], map: "idx_ua_password_reset_token")
+  @@index([emailVerificationToken], map: "idx_ua_email_verification_token")
+  @@index([lockedUntil], map: "idx_ua_locked_until")
+  @@map("user_authentications")
+}
+
+// User Profile - Personal information and preferences  
+model UserProfile {
+  id                          Int       @id @default(autoincrement())
+  authUserId                  Int       @unique @map("auth_user_id")
+  
+  // Display information
+  displayName                 String    @map("display_name") @db.VarChar(100)
+  firstName                   String?   @map("first_name") @db.VarChar(50)
+  lastName                    String?   @map("last_name") @db.VarChar(50)
+  bio                         String?   @db.Text
+  profilePictureUrl           String?   @map("profile_picture_url") @db.VarChar(500)
+  
+  // Personal details
+  birthDate                   DateTime? @map("birth_date") @db.Date
+  gender                      Gender?
+  phoneNumber                 String?   @map("phone_number") @db.VarChar(20)
+  country                     String?   @db.VarChar(100)
+  city                        String?   @db.VarChar(100)
+  
+  // Preferences
+  language                    String    @default("vi") @db.VarChar(5)
+  timezone                    String?   @default("Asia/Ho_Chi_Minh") @db.VarChar(50)
+  isProfilePublic             Boolean   @default(true) @map("is_profile_public")
+  receiveNotifications        Boolean   @default(true) @map("receive_notifications")
+  receiveMarketing            Boolean   @default(false) @map("receive_marketing")
+  
+  // Profile completion tracking
+  profileCompletedAt          DateTime? @map("profile_completed_at")
+  profileCompletionPercentage Int       @default(0) @map("profile_completion_percentage") @db.TinyInt
+  
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  authentication              UserAuthentication @relation(fields: [authUserId], references: [id], onDelete: Cascade)
+  
+  @@index([displayName], map: "idx_up_display_name")
+  @@index([country, city], map: "idx_up_country_city")
+  @@index([isProfilePublic], map: "idx_up_is_public")
+  @@index([profileCompletionPercentage], map: "idx_up_completion")
+  @@map("user_profiles")
+}
+
+// Existing tables updated to reference UserAuthentication
+model RefreshToken {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  token         String   @unique @db.Char(64)
+  revoked       Boolean  @default(false)
+  replacedBy    String?  @map("replaced_by") @db.Char(64)
+  expiresAt     DateTime @map("expires_at")
+  userAgent     String?  @map("user_agent") @db.VarChar(255)
+  ip            String?  @db.VarChar(64)
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  // Relations - now references UserAuthentication
+  user          UserAuthentication @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId], map: "idx_rt_user")
+  @@index([token], map: "idx_rt_token")
+  @@map("refresh_tokens")
+}
+
+model Role {
+  id            Int        @id @default(autoincrement()) @db.SmallInt
+  key           String     @unique @db.VarChar(50)
+  name          String     @db.VarChar(100)
+  
+  // Relations
+  users         UserRole[]
+  
+  @@map("roles")
+}
+
+model UserRole {
+  userId        Int      @map("user_id")
+  roleId        Int      @map("role_id") @db.SmallInt
+  
+  // Relations - now references UserAuthentication
+  user          UserAuthentication @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// Enums
+enum AccountStatus {
+  ACTIVE      @map("active")
+  SUSPENDED   @map("suspended") 
+  BANNED      @map("banned")
+  PENDING     @map("pending")
+  LOCKED      @map("locked")
+  
+  @@map("account_status")
+}
+
+enum Gender {
+  MALE                @map("male")
+  FEMALE              @map("female")
+  OTHER               @map("other")
+  PREFER_NOT_TO_SAY   @map("prefer_not_to_say")
+  
+  @@map("gender")
+}

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Email Verification Flow</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+      }
+      .step {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+      }
+      .step h3 {
+        margin-top: 0;
+        color: #495057;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      .result {
+        background: #e7f3ff;
+        border: 1px solid #b8daff;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .error {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+      }
+      .success {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+      }
+      input {
+        width: 300px;
+        padding: 8px;
+        margin: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .token-input {
+        width: 500px;
+        font-family: monospace;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 Test Email Verification Flow</h1>
+
+    <div class="step">
+      <h3>📝 Step 1: Register User</h3>
+      <input
+        type="email"
+        id="regEmail"
+        placeholder="Enter email"
+        value="test@example.com"
+      />
+      <input
+        type="password"
+        id="regPassword"
+        placeholder="Password"
+        value="password123"
+      />
+      <button onclick="register()">Register</button>
+      <div id="regResult" class="result" style="display: none"></div>
+    </div>
+
+    <div class="step">
+      <h3>📧 Step 2: Check Server Log</h3>
+      <p>Sau khi register, check server console để lấy verification token.</p>
+      <p>Server sẽ log ra URL verification như này:</p>
+      <code
+        >🔗 VERIFY API (Direct):
+        http://localhost:4000/api/auth/verify-email?token=YOUR_TOKEN</code
+      >
+    </div>
+
+    <div class="step">
+      <h3>✅ Step 3: Verify Email</h3>
+      <input
+        type="text"
+        id="verifyToken"
+        class="token-input"
+        placeholder="Paste verification token from server log"
+      />
+      <br />
+      <button onclick="verifyEmail()">Verify Email</button>
+      <div id="verifyResult" class="result" style="display: none"></div>
+    </div>
+
+    <div class="step">
+      <h3>🔍 Step 4: Check User Status</h3>
+      <button onclick="checkUser()">Check User Status</button>
+      <div id="userResult" class="result" style="display: none"></div>
+    </div>
+
+    <script>
+      async function register() {
+        const email = document.getElementById("regEmail").value;
+        const password = document.getElementById("regPassword").value;
+        const resultDiv = document.getElementById("regResult");
+
+        try {
+          const response = await fetch(
+            "http://localhost:4000/api/auth/register",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password }),
+            }
+          );
+
+          const data = await response.json();
+
+          resultDiv.className = response.ok ? "result success" : "result error";
+          resultDiv.innerHTML = `
+                    <strong>${
+                      response.ok ? "✅ Success" : "❌ Error"
+                    }:</strong><br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    ${
+                      response.ok
+                        ? "<p><strong>📋 Next:</strong> Check server console log for verification token!</p>"
+                        : ""
+                    }
+                `;
+          resultDiv.style.display = "block";
+        } catch (error) {
+          resultDiv.className = "result error";
+          resultDiv.innerHTML = `<strong>❌ Network Error:</strong> ${error.message}`;
+          resultDiv.style.display = "block";
+        }
+      }
+
+      async function verifyEmail() {
+        const token = document.getElementById("verifyToken").value.trim();
+        const resultDiv = document.getElementById("verifyResult");
+
+        if (!token) {
+          alert("Please enter verification token");
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `http://localhost:4000/api/auth/verify-email?token=${token}`
+          );
+          const data = await response.json();
+
+          resultDiv.className = response.ok ? "result success" : "result error";
+          resultDiv.innerHTML = `
+                    <strong>${
+                      response.ok ? "✅ Success" : "❌ Error"
+                    }:</strong><br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+          resultDiv.style.display = "block";
+        } catch (error) {
+          resultDiv.className = "result error";
+          resultDiv.innerHTML = `<strong>❌ Network Error:</strong> ${error.message}`;
+          resultDiv.style.display = "block";
+        }
+      }
+
+      async function checkUser() {
+        const email = document.getElementById("regEmail").value;
+        const resultDiv = document.getElementById("userResult");
+
+        // This would typically be done via a protected endpoint, but for demo we'll just show the concept
+        resultDiv.className = "result";
+        resultDiv.innerHTML = `
+                <strong>💡 To check user status:</strong><br>
+                <p>You would typically call a protected endpoint like:</p>
+                <code>GET /api/auth/profile</code> with Bearer token<br>
+                <p>Or query database directly:</p>
+                <code>SELECT id, email, is_email_verified FROM users WHERE email = '${email}'</code>
+            `;
+        resultDiv.style.display = "block";
+      }
+
+      // Auto-generate random email on load
+      window.onload = function () {
+        const randomEmail =
+          "user" + Math.floor(Math.random() * 10000) + "@test.com";
+        document.getElementById("regEmail").value = randomEmail;
+      };
+    </script>
+  </body>
+</html>
