@@ -6,10 +6,10 @@ import {
   Paperclip,
   MapPin,
   Mic,
-  BookOpen,
-  Brain,
-  GraduationCap,
-  BookMarked,
+  UtensilsCrossed,
+  MapPinned,
+  Star,
+  Calendar,
   Send,
   Plus
 } from 'lucide-react'
@@ -256,7 +256,7 @@ export default function ChatPage() {
                   onClick={() => handleQuickAction("Tôi muốn tìm món ăn ngon")}
                   className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
                 >
-                  <BookOpen className="w-4 h-4 text-gray-600" />
+                  <UtensilsCrossed className="w-4 h-4 text-gray-600" />
                   <span className="text-sm text-gray-700">Tìm món ăn</span>
                 </button>
                 
@@ -264,7 +264,7 @@ export default function ChatPage() {
                   onClick={() => handleQuickAction("Gợi ý cho tôi một địa điểm ăn uống thú vị")}
                   className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
                 >
-                  <Brain className="w-4 h-4 text-gray-600" />
+                  <MapPinned className="w-4 h-4 text-gray-600" />
                   <span className="text-sm text-gray-700">Gợi ý địa điểm</span>
                 </button>
                 
@@ -272,7 +272,7 @@ export default function ChatPage() {
                   onClick={() => handleQuickAction("Tôi muốn xem đánh giá của địa điểm")}
                   className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
                 >
-                  <GraduationCap className="w-4 h-4 text-gray-600" />
+                  <Star className="w-4 h-4 text-gray-600" />
                   <span className="text-sm text-gray-700">Đánh giá review</span>
                 </button>
                 
@@ -280,7 +280,7 @@ export default function ChatPage() {
                   onClick={() => handleQuickAction("Lên lịch trình ăn uống cho chuyến đi")}
                   className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
                 >
-                  <BookMarked className="w-4 h-4 text-gray-600" />
+                  <Calendar className="w-4 h-4 text-gray-600" />
                   <span className="text-sm text-gray-700">Lên plan</span>
                 </button>
               </div>
