@@ -356,8 +356,30 @@ router.post("/logout", authenticateJWT, async (req, res) => {
 // GET /api/auth/profile (protected)
 router.get("/profile", authenticateJWT, async (req, res) => {
   try {
+    // Query from users table joined with user_profiles
     const [users] = await pool.query(
-      "SELECT id, email, is_email_verified, account_status FROM users WHERE id=?",
+      `SELECT u.id, u.email, u.full_name, u.given_name, u.family_name, u.profile_picture, 
+              u.is_email_verified, u.account_status, u.auth_provider, u.created_at,
+              up.first_name as firstName, up.last_name as lastName, up.display_name as displayName,
+              up.birth_date as dateOfBirth, up.gender, up.phone_number as phoneNumber, 
+              up.country, up.address, up.bio, up.avatar_url,
+              up.is_profile_public,
+              -- Profile completion logic
+              CASE 
+                WHEN up.user_id IS NOT NULL AND up.first_name IS NOT NULL AND up.last_name IS NOT NULL 
+                THEN true 
+                ELSE false 
+              END as profileComplete,
+              CASE 
+                WHEN up.user_id IS NOT NULL 
+                THEN true 
+                ELSE false 
+              END as isProfileSetup,
+              -- Use displayName from profile or fallback to full_name or email
+              COALESCE(up.display_name, u.full_name, SUBSTRING_INDEX(u.email, '@', 1)) as fullName
+       FROM users u 
+       LEFT JOIN user_profiles up ON u.id = up.user_id 
+       WHERE u.id = ?`,
       [req.user.id]
     );
     if (!users.length) {
@@ -365,13 +387,41 @@ router.get("/profile", authenticateJWT, async (req, res) => {
     }
 
     const user = users[0];
+
+    // Parse JSON fields if they exist (foodPreferences stored in JSON format)
+    let foodPreferences = {};
+    // Note: foodPreferences not in current user_profiles schema, keeping empty for now
+
     res.json({
       success: true,
       user: {
         id: user.id,
         email: user.email,
+        full_name: user.full_name,
+        given_name: user.given_name,
+        family_name: user.family_name,
+        profile_picture: user.profile_picture || user.avatar_url,
         is_email_verified: user.is_email_verified,
         account_status: user.account_status,
+        auth_provider: user.auth_provider,
+        created_at: user.created_at,
+        fullName: user.fullName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        displayName: user.displayName,
+        dateOfBirth: user.dateOfBirth,
+        gender: user.gender,
+        phoneNumber: user.phoneNumber,
+        country: user.country,
+        address: user.address,
+        bio: user.bio,
+        avatar_url: user.avatar_url,
+        foodPreferences: foodPreferences,
+        priceRange: null, // Not in current schema
+        preferredLocation: null, // Not in current schema
+        isProfileSetup: Boolean(user.isProfileSetup),
+        profileComplete: Boolean(user.profileComplete),
+        is_profile_public: Boolean(user.is_profile_public),
       },
     });
   } catch (error) {

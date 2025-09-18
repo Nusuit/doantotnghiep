@@ -254,6 +254,8 @@ export const AuthProvider = ({ children }) => {
 
     if (token) {
       try {
+        console.log("🔍 Starting auth check with full profile data fetch...");
+
         const response = await fetch("http://localhost:4000/api/auth/profile", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -264,30 +266,50 @@ export const AuthProvider = ({ children }) => {
           const contentType = response.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
             const data = await response.json();
-            if (data.success) {
+            console.log("🔍 Full profile data received:", data);
+
+            if (data.success && data.user) {
+              // Set user with COMPLETE profile data from database
+              console.log(
+                "✅ Setting authenticated user with full profile data"
+              );
               setUser(data.user);
               setIsAuthenticated(true);
               localStorage.setItem("user", JSON.stringify(data.user));
+
+              console.log("✅ Auth check completed with user:", {
+                email: data.user.email,
+                profileComplete: data.user.profileComplete,
+                isProfileSetup: data.user.isProfileSetup,
+                hasBasicData: {
+                  dateOfBirth: !!data.user.dateOfBirth,
+                  gender: !!data.user.gender,
+                  priceRange: !!data.user.priceRange,
+                },
+              });
             } else {
+              console.warn("❌ API response invalid:", data);
               localStorage.removeItem("token");
               localStorage.removeItem("user");
               setIsAuthenticated(false);
               setUser(null);
             }
           } else {
+            console.warn("❌ Non-JSON response");
             localStorage.removeItem("token");
             localStorage.removeItem("user");
             setIsAuthenticated(false);
             setUser(null);
           }
         } else {
+          console.warn("❌ API response not OK:", response.status);
           localStorage.removeItem("token");
           localStorage.removeItem("user");
           setIsAuthenticated(false);
           setUser(null);
         }
       } catch (error) {
-        console.error("Auth check error:", error);
+        console.error("❌ Auth check error:", error);
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         setIsAuthenticated(false);
@@ -298,6 +320,62 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
     }
     setIsInitializing(false);
+  };
+
+  const setAdminRole = () => {
+    if (user) {
+      setUser({ ...user, role: "admin" });
+      localStorage.setItem("user", JSON.stringify({ ...user, role: "admin" }));
+    }
+  };
+
+  const refreshUserData = async () => {
+    console.log("🔄 Refreshing user data from API...");
+
+    // Try to fetch fresh data from API first
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        const response = await fetch("http://localhost:4000/api/auth/profile", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const freshUser = data.user || data;
+          console.log("✅ User data refreshed from API:", {
+            email: freshUser.email,
+            profileComplete: freshUser.profileComplete,
+            isProfileSetup: freshUser.isProfileSetup,
+          });
+
+          setUser(freshUser);
+          localStorage.setItem("user", JSON.stringify(freshUser));
+          return freshUser;
+        } else {
+          console.warn("API response not OK:", response.status);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to fetch fresh user data from API:", error.message);
+    }
+
+    // Fallback: refresh from localStorage
+    console.log("📦 Falling back to localStorage");
+    return new Promise((resolve) => {
+      const userData = localStorage.getItem("user");
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        // Use setTimeout to ensure state update is complete
+        setTimeout(() => resolve(parsedUser), 0);
+      } else {
+        resolve(null);
+      }
+    });
   };
 
   const value = {
@@ -313,6 +391,8 @@ export const AuthProvider = ({ children }) => {
     resendVerification,
     logout,
     checkAuth,
+    setAdminRole, // For testing
+    refreshUserData, // Refresh user data
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

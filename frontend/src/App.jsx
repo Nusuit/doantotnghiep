@@ -1,79 +1,238 @@
-import { useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./hooks/useAuthNew.jsx";
 import AuthPageNew from "./components/AuthPageNew";
 import ProfileSetupForm from "./components/ProfileSetupForm";
-import { AuthProvider, useAuth } from "./hooks/useAuthNew.jsx";
+import Header from "./components/Header";
+import HomePage from "./pages/HomePage";
+import LandingPage from "./pages/LandingPage";
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminKeywords from "./pages/admin/AdminKeywords";
+import AdminConversations from "./pages/admin/AdminConversations";
+import AdminKnowledge from "./pages/admin/AdminKnowledge";
+import AdminReports from "./pages/admin/AdminReports";
+import AdminSettings from "./pages/admin/AdminSettings";
+
 import "./global.css";
 
-// Main App component sau khi đăng nhập
-function MainApp() {
-  const { user, logout } = useAuth();
+// Kiểm tra xem user có phải lần đầu đăng nhập không
+function isFirstTimeUser(user) {
+  if (!user) return false;
+
+  console.log("🔍 Checking isFirstTimeUser for:", {
+    email: user.email,
+    profileComplete: user.profileComplete,
+    profileCompleteType: typeof user.profileComplete,
+    isProfileSetup: user.isProfileSetup,
+    isProfileSetupType: typeof user.isProfileSetup,
+    hasBasicInfo: {
+      dateOfBirth: !!user.dateOfBirth,
+      gender: !!user.gender,
+      priceRange: !!user.priceRange,
+    },
+  });
+
+  // If profileComplete or isProfileSetup are undefined,
+  // we should wait for complete profile data before making a decision
+  if (user.profileComplete === undefined && user.isProfileSetup === undefined) {
+    console.log(
+      "⏳ Profile data not loaded yet, treating as non-first-time to prevent loops"
+    );
+    return false;
+  }
+
+  // Nếu user đã có profileComplete hoặc isProfileSetup = true, thì không phải first time
+  // Handle both boolean and string values
+  const isProfileCompleted =
+    user.profileComplete === true ||
+    user.profileComplete === "true" ||
+    user.profileComplete === 1;
+  const isSetupDone =
+    user.isProfileSetup === true ||
+    user.isProfileSetup === "true" ||
+    user.isProfileSetup === 1;
+
+  if (isProfileCompleted || isSetupDone) {
+    console.log("✅ User already completed profile");
+    return false;
+  }
+
+  // Kiểm tra user có đủ thông tin profile cơ bản không
+  const hasBasicProfile = user.dateOfBirth && user.gender && user.priceRange;
+  if (hasBasicProfile) {
+    console.log(
+      "🔧 User has basic profile but flags missing, considering as completed"
+    );
+    return false;
+  }
+
+  console.log("❌ User is first time");
+  return true; // Nếu không có thông tin cơ bản thì là first time
+}
+
+// Kiểm tra admin email
+function isAdminUser(email) {
+  return email === "huykien283@gmail.com";
+}
+
+// Protected Route Component
+function ProtectedRoute({ children, requireAdmin = false }) {
+  const { isAuthenticated, user } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Check admin requirement first
+  if (requireAdmin && !isAdminUser(user?.email)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
+function AppContent() {
+  const { isAuthenticated, user, refreshUserData, isInitializing } = useAuth();
+
+  const handleProfileSetupComplete = async (profileData) => {
+    console.log("Profile setup completed:", profileData);
+    // Refresh user data để cập nhật state và chờ hoàn thành
+    await refreshUserData();
+    console.log("User data refreshed after profile setup");
+  };
+
+  // Show loading during initialization - wait for auth check to complete
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Kiểm tra nếu có OAuth callback token trong URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasOAuthToken =
+    urlParams.get("token") || urlParams.get("code") || urlParams.get("error");
+
+  // Xác định route đầu tiên sau khi đăng nhập
+  const getHomeRoute = () => {
+    if (!user) return "/auth";
+
+    // Nếu là user lần đầu, chuyển đến profile setup
+    if (isFirstTimeUser(user)) {
+      return "/profile-setup";
+    }
+
+    // Nếu là admin, chuyển đến admin panel
+    if (isAdminUser(user.email)) {
+      return "/admin";
+    }
+
+    // User thông thường chuyển đến homepage
+    return "/home";
+  };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#E0E7FF" }}>
-      <nav
-        className="bg-white shadow-sm"
-        style={{ borderBottom: "1px solid #D1D5DB" }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-bold" style={{ color: "#FF8B20" }}>
-              SocialNet
-            </h1>
-            <div className="flex items-center space-x-4">
-              <span style={{ color: "#1F2937" }}>
-                Xin chào, {user?.fullname || user?.username || user?.email}
-              </span>
-              <button
-                onClick={logout}
-                className="px-4 py-2 text-sm font-medium transition-colors border rounded-lg"
-                style={{
-                  color: "#1F2937",
-                  borderColor: "#D1D5DB",
-                  backgroundColor: "transparent",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#E0E7FF";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "transparent";
-                }}
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <Router>
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main>
+          <Routes>
+            {/* Authentication Route - ưu tiên xử lý OAuth callback */}
+            <Route
+              path="/auth"
+              element={
+                !isAuthenticated || hasOAuthToken ? (
+                  <AuthPageNew />
+                ) : (
+                  <Navigate to={getHomeRoute()} replace />
+                )
+              }
+            />
 
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4" style={{ color: "#1F2937" }}>
-            Chào mừng đến với SocialNet!
-          </h2>
-          <p style={{ color: "#6B7280" }}>
-            Tính năng chính sẽ được phát triển ở đây...
-          </p>
-          <div
-            style={{
-              marginTop: "24px",
-              padding: "16px",
-              backgroundColor: "#FFFFFF",
-              borderRadius: "8px",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            }}
-          >
-            <h3 style={{ color: "#1F2937", marginBottom: "12px" }}>
-              Thông tin cá nhân:
-            </h3>
-            <pre
-              style={{ textAlign: "left", fontSize: "14px", color: "#6B7280" }}
+            {/* Profile Setup Route - chỉ cho user lần đầu */}
+            <Route
+              path="/profile-setup"
+              element={
+                isAuthenticated ? (
+                  isFirstTimeUser(user) ? (
+                    <ProfileSetupForm onComplete={handleProfileSetupComplete} />
+                  ) : (
+                    <Navigate to={getHomeRoute()} replace />
+                  )
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+
+            {/* Homepage cho user thường */}
+            <Route
+              path="/home"
+              element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Routes - chỉ cho admin email */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }
             >
-              {JSON.stringify(user, null, 2)}
-            </pre>
-          </div>
-        </div>
-      </main>
-    </div>
+              <Route index element={<AdminDashboard />} />
+              <Route path="keywords" element={<AdminKeywords />} />
+              <Route path="conversations" element={<AdminConversations />} />
+              <Route path="knowledge" element={<AdminKnowledge />} />
+              <Route path="reports" element={<AdminReports />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
+
+            {/* Root route - điều hướng thông minh, nhưng ưu tiên OAuth callback */}
+            <Route
+              path="/"
+              element={
+                hasOAuthToken ? (
+                  <AuthPageNew />
+                ) : isAuthenticated ? (
+                  <Navigate to={getHomeRoute()} replace />
+                ) : (
+                  <LandingPage />
+                )
+              }
+            />
+
+            {/* Fallback cho các route không tồn tại - không can thiệp OAuth */}
+            <Route
+              path="*"
+              element={
+                hasOAuthToken ? (
+                  <AuthPageNew />
+                ) : isAuthenticated ? (
+                  <Navigate to={getHomeRoute()} replace />
+                ) : (
+                  <LandingPage />
+                )
+              }
+            />
+          </Routes>
+        </main>
+      </div>
+    </Router>
   );
 }
 
@@ -83,33 +242,6 @@ function App() {
       <AppContent />
     </AuthProvider>
   );
-}
-
-function AppContent() {
-  const { isAuthenticated, user } = useAuth();
-  const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
-
-  // Kiểm tra xem user cần setup profile không
-  // Giả sử user cần setup nếu chưa có fullName
-  const userNeedsProfileSetup =
-    isAuthenticated && user && !user.fullName && !user.profileComplete;
-
-  const handleProfileSetupComplete = (profileData) => {
-    console.log("Profile setup completed:", profileData);
-    // TODO: Save profile data to backend
-    // For now, just mark as complete
-    setNeedsProfileSetup(false);
-  };
-
-  if (!isAuthenticated) {
-    return <AuthPageNew />;
-  }
-
-  if (userNeedsProfileSetup || needsProfileSetup) {
-    return <ProfileSetupForm onComplete={handleProfileSetupComplete} />;
-  }
-
-  return <MainApp />;
 }
 
 export default App;

@@ -7,9 +7,13 @@ import ResetPasswordForm from "./auth/ResetPasswordForm";
 import VerifyAccountForm from "./auth/VerifyAccountForm";
 import OAuthCallbackHandler from "./OAuthCallbackHandler";
 import { useAuth } from "../hooks/useAuthNew.jsx";
+import { useLocation } from "react-router-dom";
 
 const AuthPage = () => {
-  const [activeTab, setActiveTab] = useState("login");
+  const location = useLocation();
+  const initialMode = location.state?.mode || "login";
+
+  const [activeTab, setActiveTab] = useState(initialMode);
   const [currentStep, setCurrentStep] = useState("auth"); // auth, forgot, reset, verify
   const { checkAuth } = useAuth();
 

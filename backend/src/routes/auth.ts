@@ -295,9 +295,36 @@ router.get("/profile", authenticateJWT, async (req: any, res: Response) => {
     console.log("🔍 Profile request - req.user:", req.user);
 
     const [users] = (await pool.query(
-      `SELECT id, email, full_name, given_name, family_name, 
-              profile_picture, is_email_verified, account_status, 
-              auth_provider, created_at FROM users WHERE id = ?`,
+      `
+      SELECT 
+        u.*,
+        up.first_name,
+        up.last_name,
+        up.display_name,
+        up.bio,
+        up.birth_date,
+        up.gender,
+        up.phone_number,
+        up.country,
+        up.city,
+        up.address,
+        up.language,
+        up.timezone,
+        up.is_profile_public,
+        up.email_notifications,
+        up.push_notifications,
+        CASE 
+          WHEN up.first_name IS NOT NULL AND up.last_name IS NOT NULL THEN 1 
+          ELSE 0 
+        END as profileComplete,
+        CASE 
+          WHEN up.first_name IS NOT NULL THEN 1 
+          ELSE 0 
+        END as isProfileSetup
+      FROM users u 
+      LEFT JOIN user_profiles up ON u.id = up.user_id 
+      WHERE u.id = ?
+    `,
       [req.user.id]
     )) as any;
 
@@ -307,7 +334,28 @@ router.get("/profile", authenticateJWT, async (req: any, res: Response) => {
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    res.json({ success: true, user: users[0] });
+    const user = users[0];
+
+    // Parse JSON fields if they exist
+    let foodPreferences = {};
+    if (user.foodPreferences) {
+      try {
+        foodPreferences =
+          typeof user.foodPreferences === "string"
+            ? JSON.parse(user.foodPreferences)
+            : user.foodPreferences;
+      } catch (e) {
+        console.warn("Failed to parse foodPreferences:", e);
+      }
+    }
+
+    const responseUser = {
+      ...user,
+      foodPreferences: foodPreferences,
+    };
+
+    console.log("✅ Sending user profile:", responseUser);
+    res.json({ success: true, user: responseUser });
   } catch (error: any) {
     console.error("❌ Profile error:", error);
     res.status(500).json({ success: false, error: "Failed to get profile" });

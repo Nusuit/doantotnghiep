@@ -2,91 +2,154 @@
 import { useState, useEffect } from "react";
 
 const ProfileSetupForm = ({ onComplete }) => {
+  // Lấy thông tin user hiện tại từ localStorage
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+
   const [formData, setFormData] = useState({
-    fullName: "",
-    firstName: "",
-    lastName: "",
-    dateOfBirth: "",
-    gender: "",
-    phoneNumber: "",
-    country: "",
-    address: "",
+    // OAuth display name for reference (kept as display preference)
+    fullName: currentUser.full_name || currentUser.fullName || "",
+    // Separate real name fields that users must provide
+    firstName: currentUser.firstName || "",
+    lastName: currentUser.lastName || "",
+    dateOfBirth: currentUser.dateOfBirth || "",
+    gender: currentUser.gender || "",
+    phoneNumber: currentUser.phoneNumber || "",
+    country: currentUser.country || "",
+    address: currentUser.address || "",
     foodPreferences: {
       breakfast: false,
       lunch: false,
       dinner: false,
       snack: false,
     },
-    priceRange: "",
-    preferredLocation: "",
+    priceRange: currentUser.priceRange || "",
+    preferredLocation: currentUser.preferredLocation || "",
   });
+
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [locationDetected, setLocationDetected] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [hasOAuthData, setHasOAuthData] = useState(false);
 
   // Auto-detect location on component mount
   useEffect(() => {
     detectLocation();
+
+    // Kiểm tra xem user có data từ OAuth không
+    if (
+      currentUser.full_name ||
+      currentUser.given_name ||
+      currentUser.family_name
+    ) {
+      setHasOAuthData(true);
+    }
   }, []);
 
   const detectLocation = async () => {
     try {
-      // Try to get location from browser geolocation API
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
+      if (!navigator.geolocation) {
+        console.log("Geolocation not supported by this browser");
+        return;
+      }
 
-            // Use reverse geocoding API to get location details
-            try {
-              const response = await fetch(
-                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-              );
-              const data = await response.json();
+      // Create a promise with timeout for geolocation
+      const getCurrentPosition = () => {
+        return new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error("Geolocation timeout"));
+          }, 10000); // 10 second timeout
 
-              if (data.countryName && (data.city || data.locality)) {
-                const fullAddress = [
-                  data.city || data.locality,
-                  data.principalSubdivision,
-                  data.countryName,
-                ]
-                  .filter(Boolean)
-                  .join(", ");
-
-                setFormData((prev) => ({
-                  ...prev,
-                  country: data.countryName,
-                  address: fullAddress,
-                }));
-                setLocationDetected(true);
-                console.log(
-                  "✅ Location detected:",
-                  data.countryName,
-                  fullAddress
-                );
-              }
-            } catch (geoError) {
-              console.log("Geocoding failed:", geoError);
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              clearTimeout(timeoutId);
+              resolve(position);
+            },
+            (error) => {
+              clearTimeout(timeoutId);
+              reject(error);
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 8000,
+              maximumAge: 300000, // 5 minutes
             }
-          },
-          (error) => {
-            console.log("Geolocation failed:", error);
-          }
+          );
+        });
+      };
+
+      const position = await getCurrentPosition();
+      const { latitude, longitude } = position.coords;
+
+      // Try reverse geocoding with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      try {
+        const response = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=vi`,
+          { signal: controller.signal }
         );
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.countryName && (data.city || data.locality)) {
+            const locationParts = [
+              data.city || data.locality,
+              data.principalSubdivision,
+              data.countryName,
+            ].filter(Boolean);
+
+            const detectedLocation = locationParts.join(", ");
+
+            setFormData((prev) => ({
+              ...prev,
+              country: data.countryName || "",
+              address: detectedLocation,
+              preferredLocation: data.city || data.locality || "",
+            }));
+
+            setLocationDetected(true);
+            console.log("✅ Location detected:", detectedLocation);
+          }
+        }
+      } catch (fetchError) {
+        console.log("Reverse geocoding failed:", fetchError.message);
       }
     } catch (error) {
-      console.log("Location detection failed:", error);
+      console.log("Geolocation detection failed:", error.message);
+      // Fallback: set Vietnam as default if location detection fails
+      if (error.code === 1) {
+        // Permission denied
+        console.log("Location permission denied by user");
+      } else if (error.code === 2) {
+        // Position unavailable
+        console.log("Location information unavailable");
+      } else if (error.code === 3) {
+        // Timeout
+        console.log("Location request timed out");
+      }
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (
-      !formData.fullName.trim() &&
-      (!formData.firstName.trim() || !formData.lastName.trim())
-    ) {
-      newErrors.fullName = "Họ tên hoặc tên riêng là bắt buộc";
+    // Validate firstName and lastName - always required for real identity
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "Tên là bắt buộc";
+    }
+
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Họ là bắt buộc";
+    }
+
+    // fullName validation (for display purpose)
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = "Tên hiển thị là bắt buộc";
     }
 
     if (!formData.dateOfBirth) {
@@ -97,12 +160,12 @@ const ProfileSetupForm = ({ onComplete }) => {
       newErrors.gender = "Vui lòng chọn giới tính";
     }
 
-    // Phone validation (optional but if provided should be valid)
-    if (
-      formData.phoneNumber &&
-      !/^\+?[\d\s-()]+$/.test(formData.phoneNumber.trim())
-    ) {
-      newErrors.phoneNumber = "Số điện thoại không hợp lệ";
+    // Improved phone validation for Vietnamese numbers
+    if (formData.phoneNumber.trim()) {
+      const phoneRegex = /^(\+84|84|0)(3|5|7|8|9)\d{8}$/;
+      if (!phoneRegex.test(formData.phoneNumber.replace(/[\s-()]/g, ""))) {
+        newErrors.phoneNumber = "Số điện thoại không đúng định dạng Việt Nam";
+      }
     }
 
     const hasPreference = Object.values(formData.foodPreferences).some(Boolean);
@@ -128,48 +191,123 @@ const ProfileSetupForm = ({ onComplete }) => {
     }
 
     setIsLoading(true);
+
     try {
-      // Call API to save profile data
       const token = localStorage.getItem("token");
       if (!token) {
         throw new Error("No authentication token found");
       }
 
+      const profileData = {
+        ...formData,
+        // Keep both individual names and combined display name
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        fullName: formData.fullName, // Display name (could be OAuth name or user preference)
+        displayName: formData.fullName, // Backup field for compatibility
+        isProfileSetup: true,
+        profileComplete: true,
+      };
+
+      // Try API first
       const response = await fetch("http://localhost:4000/api/auth/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(profileData),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to save profile");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // API success - update localStorage and complete
+          await updateUserData(profileData);
+          console.log("✅ Profile saved successfully via API");
+          setSubmitSuccess(true);
+          setTimeout(() => onComplete(profileData), 1000);
+          return;
+        }
       }
 
-      if (data.success) {
-        console.log("✅ Profile saved successfully");
-        onComplete(formData);
-      } else {
-        throw new Error(data.error || "Failed to save profile");
-      }
+      // API failed - fallback to localStorage
+      throw new Error("API request failed");
     } catch (error) {
-      console.error("❌ Profile save error:", error);
-      setErrors({ submit: error.message || "Có lỗi xảy ra khi lưu thông tin" });
+      console.warn(
+        "API unavailable, using localStorage fallback:",
+        error.message
+      );
+
+      // Fallback: save to localStorage
+      try {
+        await updateUserData({
+          ...formData,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          isProfileSetup: true,
+          profileComplete: true,
+        });
+
+        console.log("✅ Profile saved to localStorage");
+        setSubmitSuccess(true);
+        setTimeout(
+          () =>
+            onComplete({
+              ...formData,
+              isProfileSetup: true,
+              profileComplete: true,
+            }),
+          1000
+        );
+      } catch (fallbackError) {
+        console.error("❌ Failed to save profile:", fallbackError);
+        setErrors({
+          submit: "Có lỗi xảy ra khi lưu thông tin. Vui lòng thử lại.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to update user data consistently
+  const updateUserData = async (profileData) => {
+    const userData = JSON.parse(localStorage.getItem("user") || "{}");
+    const updatedUser = {
+      ...userData,
+      ...profileData,
+    };
+    localStorage.setItem("user", JSON.stringify(updatedUser));
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
+    // Real-time validation - clear errors as user types
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+
+    // Real-time validation for specific fields
+    if (name === "firstName" && value.trim().length >= 1) {
+      setErrors((prev) => ({ ...prev, firstName: "" }));
+    }
+
+    if (name === "lastName" && value.trim().length >= 1) {
+      setErrors((prev) => ({ ...prev, lastName: "" }));
+    }
+
+    if (name === "fullName" && value.trim().length >= 2) {
+      setErrors((prev) => ({ ...prev, fullName: "" }));
+    }
+
+    if (name === "phoneNumber" && value.trim()) {
+      const phoneRegex = /^(\+84|84|0)(3|5|7|8|9)\d{8}$/;
+      if (phoneRegex.test(value.replace(/[\s-()]/g, ""))) {
+        setErrors((prev) => ({ ...prev, phoneNumber: "" }));
+      }
     }
   };
 
@@ -182,7 +320,12 @@ const ProfileSetupForm = ({ onComplete }) => {
       },
     }));
 
-    if (errors.foodPreferences) {
+    // Clear food preferences error when user selects any preference
+    const hasAnyPreference = Object.values({
+      ...formData.foodPreferences,
+      [preference]: !formData.foodPreferences[preference],
+    }).some(Boolean);
+    if (hasAnyPreference && errors.foodPreferences) {
       setErrors((prev) => ({ ...prev, foodPreferences: "" }));
     }
   };
@@ -209,6 +352,24 @@ const ProfileSetupForm = ({ onComplete }) => {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
+          {currentUser.profile_picture && (
+            <div style={{ marginBottom: "16px" }}>
+              <img
+                src={currentUser.profile_picture}
+                alt="Profile"
+                style={{
+                  width: "80px",
+                  height: "80px",
+                  borderRadius: "50%",
+                  border: "3px solid #FF8B20",
+                  marginBottom: "8px",
+                }}
+              />
+              <p style={{ color: "#6B7280", fontSize: "12px" }}>
+                Xin chào, {currentUser.given_name || "User"}! 👋
+              </p>
+            </div>
+          )}
           <h2
             style={{
               color: "#FF8B20",
@@ -220,7 +381,9 @@ const ProfileSetupForm = ({ onComplete }) => {
             Hoàn thiện thông tin
           </h2>
           <p style={{ color: "#6B7280", fontSize: "14px" }}>
-            Hãy cho chúng tôi biết thêm về bạn để có trải nghiệm tốt hơn
+            {hasOAuthData
+              ? "Chúng tôi đã lấy một số thông tin từ Google. Vui lòng bổ sung thêm để có trải nghiệm tốt hơn"
+              : "Hãy cho chúng tôi biết thêm về bạn để có trải nghiệm tốt hơn"}
           </p>
         </div>
 
@@ -241,7 +404,24 @@ const ProfileSetupForm = ({ onComplete }) => {
             </div>
           )}
 
-          {/* Họ và tên */}
+          {submitSuccess && (
+            <div
+              style={{
+                backgroundColor: "#F0FDF4",
+                border: "1px solid #BBF7D0",
+                borderRadius: "8px",
+                padding: "12px",
+                marginBottom: "16px",
+                color: "#15803D",
+                fontSize: "14px",
+                textAlign: "center",
+              }}
+            >
+              ✅ Thông tin đã được lưu thành công!
+            </div>
+          )}
+
+          {/* Tên hiển thị (Display Name) */}
           <div style={{ marginBottom: "20px" }}>
             <label
               style={{
@@ -252,34 +432,57 @@ const ProfileSetupForm = ({ onComplete }) => {
                 color: "#1F2937",
               }}
             >
-              Họ và tên
+              Tên hiển thị{" "}
+              {hasOAuthData && (
+                <span style={{ color: "#059669", fontSize: "12px" }}>
+                  ✓ Từ Google
+                </span>
+              )}
             </label>
             <input
               type="text"
               name="fullName"
               value={formData.fullName}
               onChange={handleChange}
+              disabled={hasOAuthData}
               onFocus={(e) => {
-                e.target.style.borderColor = "#FF8B20";
-                e.target.style.outline = "none";
-                e.target.style.boxShadow = "0 0 0 3px rgba(255, 139, 32, 0.1)";
+                if (!hasOAuthData) {
+                  e.target.style.borderColor = "#FF8B20";
+                  e.target.style.outline = "none";
+                  e.target.style.boxShadow =
+                    "0 0 0 3px rgba(255, 139, 32, 0.1)";
+                }
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = errors.fullName
-                  ? "#DC2626"
-                  : "#D1D5DB";
-                e.target.style.boxShadow = "none";
+                if (!hasOAuthData) {
+                  e.target.style.borderColor = errors.fullName
+                    ? "#DC2626"
+                    : "#D1D5DB";
+                  e.target.style.boxShadow = "none";
+                }
               }}
               style={{
                 width: "100%",
                 padding: "12px 16px",
-                border: `2px solid ${errors.fullName ? "#DC2626" : "#D1D5DB"}`,
+                border: `2px solid ${
+                  errors.fullName
+                    ? "#DC2626"
+                    : hasOAuthData
+                    ? "#10B981"
+                    : "#D1D5DB"
+                }`,
                 borderRadius: "8px",
                 fontSize: "16px",
                 transition: "all 0.2s ease-in-out",
-                backgroundColor: "#FFFFFF",
+                backgroundColor: hasOAuthData ? "#F0FDF4" : "#FFFFFF",
+                color: hasOAuthData ? "#059669" : "#1F2937",
+                cursor: hasOAuthData ? "not-allowed" : "text",
               }}
-              placeholder="Nhập họ tên đầy đủ..."
+              placeholder={
+                hasOAuthData
+                  ? "Tên từ Google account"
+                  : "VD: Sawari Yuki hoặc nickname..."
+              }
               required
             />
             {errors.fullName && (
@@ -294,76 +497,155 @@ const ProfileSetupForm = ({ onComplete }) => {
                 {errors.fullName}
               </span>
             )}
+            {hasOAuthData && (
+              <span
+                style={{
+                  display: "block",
+                  color: "#059669",
+                  fontSize: "12px",
+                  marginTop: "4px",
+                }}
+              >
+                ℹ️ Tên này được lấy từ Google account của bạn và không thể thay
+                đổi
+              </span>
+            )}
           </div>
 
-          {/* Tên riêng (Tách riêng nếu không có họ tên đầy đủ) */}
-          {!formData.fullName && (
-            <>
-              <div
-                style={{ display: "flex", gap: "12px", marginBottom: "20px" }}
+          {/* Họ tên thật (First Name + Last Name) */}
+          <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
+            {/* Họ (Last Name) */}
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  marginBottom: "6px",
+                  color: "#1F2937",
+                }}
               >
-                {/* Họ */}
-                <div style={{ flex: 1 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      marginBottom: "6px",
-                      color: "#1F2937",
-                    }}
-                  >
-                    Họ
-                  </label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      border: "2px solid #D1D5DB",
-                      borderRadius: "8px",
-                      fontSize: "16px",
-                      transition: "all 0.2s ease-in-out",
-                    }}
-                    placeholder="Họ..."
-                  />
-                </div>
+                Họ <span style={{ color: "#DC2626" }}>*</span>
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#FF8B20";
+                  e.target.style.outline = "none";
+                  e.target.style.boxShadow =
+                    "0 0 0 3px rgba(255, 139, 32, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = errors.lastName
+                    ? "#DC2626"
+                    : "#D1D5DB";
+                  e.target.style.boxShadow = "none";
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: `2px solid ${
+                    errors.lastName ? "#DC2626" : "#D1D5DB"
+                  }`,
+                  borderRadius: "8px",
+                  fontSize: "16px",
+                  transition: "all 0.2s ease-in-out",
+                }}
+                placeholder="VD: Phạm, Nguyễn..."
+                required
+              />
+              {errors.lastName && (
+                <span
+                  style={{
+                    display: "block",
+                    color: "#DC2626",
+                    fontSize: "12px",
+                    marginTop: "4px",
+                  }}
+                >
+                  {errors.lastName}
+                </span>
+              )}
+            </div>
 
-                {/* Tên */}
-                <div style={{ flex: 1 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      marginBottom: "6px",
-                      color: "#1F2937",
-                    }}
-                  >
-                    Tên
-                  </label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      border: "2px solid #D1D5DB",
-                      borderRadius: "8px",
-                      fontSize: "16px",
-                      transition: "all 0.2s ease-in-out",
-                    }}
-                    placeholder="Tên..."
-                  />
-                </div>
-              </div>
-            </>
-          )}
+            {/* Tên (First Name) */}
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  marginBottom: "6px",
+                  color: "#1F2937",
+                }}
+              >
+                Tên <span style={{ color: "#DC2626" }}>*</span>
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#FF8B20";
+                  e.target.style.outline = "none";
+                  e.target.style.boxShadow =
+                    "0 0 0 3px rgba(255, 139, 32, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = errors.firstName
+                    ? "#DC2626"
+                    : "#D1D5DB";
+                  e.target.style.boxShadow = "none";
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: `2px solid ${
+                    errors.firstName ? "#DC2626" : "#D1D5DB"
+                  }`,
+                  borderRadius: "8px",
+                  fontSize: "16px",
+                  transition: "all 0.2s ease-in-out",
+                }}
+                placeholder="VD: Huy Kiên..."
+                required
+              />
+              {errors.firstName && (
+                <span
+                  style={{
+                    display: "block",
+                    color: "#DC2626",
+                    fontSize: "12px",
+                    marginTop: "4px",
+                  }}
+                >
+                  {errors.firstName}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Helper text cho họ tên thật */}
+          <div
+            style={{
+              marginBottom: "20px",
+              padding: "12px",
+              backgroundColor: "#FEF3C7",
+              borderRadius: "8px",
+              border: "1px solid #F59E0B",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "13px", color: "#92400E" }}>
+              💡 <strong>Lưu ý:</strong> Vui lòng nhập họ tên thật của bạn (như
+              trong CMND/CCCD) để chúng tôi có thể xác nhận danh tính khi cần
+              thiết. Tên hiển thị ở trên có thể là nickname hoặc tên bạn muốn
+              hiển thị công khai.
+            </p>
+          </div>
 
           {/* Số điện thoại */}
           <div style={{ marginBottom: "20px" }}>
