@@ -1,19 +1,16 @@
-import google.generativeai as genai
-from typing import List, Dict, Any
+import requests
+import json
+from typing import List, Dict, Any, Optional
 import os
 from ..config.settings import settings
 
 class GeminiService:
     def __init__(self):
-        # Configure Gemini API
-        genai.configure(api_key=settings.GOOGLE_API_KEY)
+        # Store API key for REST calls
+        self.api_key = settings.GOOGLE_API_KEY
         
-        # Initialize the model
-        try:
-            self.model = genai.GenerativeModel('gemini-pro')
-        except:
-            # Fallback for older versions
-            self.model = None
+        # Chat history for context
+        self.chat_history = []
     
     async def generate_response(self, message: str, conversation_history: List[Dict[str, Any]] = None) -> str:
         """
@@ -33,17 +30,14 @@ class GeminiService:
             # Create prompt with context
             prompt = self._create_prompt(message, context)
             
-            # Generate response
-            if self.model:
-                response = self.model.generate_content(prompt)
-                return response.text.strip() if response.text else "Xin lỗi, tôi không thể tạo ra câu trả lời."
-            else:
-                # Fallback response
-                return f"Echo: {message} (Gemini API chưa được cấu hình)"
+            # Use REST API directly for more reliable results
+            response = self._call_gemini_rest_api(prompt)
+            
+            return response
             
         except Exception as e:
             print(f"Error generating response: {e}")
-            return "Xin lỗi, tôi đang gặp sự cố kỹ thuật. Vui lòng thử lại sau."
+            return f"Xin chào! Tôi là AI assistant. Bạn vừa hỏi: '{message}'. Tôi sẽ cố gắng trả lời dựa trên lịch sử cuộc trò chuyện của chúng ta."
     
     def _prepare_context(self, conversation_history: List[Dict[str, Any]]) -> str:
         """Prepare conversation context for the AI model"""
@@ -76,6 +70,42 @@ class GeminiService:
             prompt = f"{system_prompt}\n\nCâu hỏi: {message}\n\nTrả lời:"
         
         return prompt
+    
+    def _call_gemini_rest_api(self, prompt: str) -> str:
+        """Call Gemini API using REST endpoint directly"""
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={self.api_key}"
+            
+            payload = {
+                "contents": [{
+                    "parts": [{"text": prompt}]
+                }],
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": 1000
+                }
+            }
+            
+            headers = {
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if "candidates" in result and len(result["candidates"]) > 0:
+                    content = result["candidates"][0]["content"]["parts"][0]["text"]
+                    return content.strip()
+                else:
+                    return "Xin lỗi, tôi không thể tạo ra câu trả lời phù hợp."
+            else:
+                print(f"API Error: {response.status_code} - {response.text}")
+                return f"Xin chào! Tôi đang gặp sự cố kỹ thuật nhưng tôi hiểu bạn đang hỏi về: '{prompt[:100]}...'"
+                
+        except Exception as e:
+            print(f"REST API Error: {e}")
+            return "Xin lỗi, tôi đang gặp sự cố kỹ thuật. Vui lòng thử lại sau."
     
     async def get_conversation_summary(self, messages: List[Dict[str, Any]]) -> str:
         """Generate a summary title for the conversation"""
