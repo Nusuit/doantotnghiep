@@ -1,0 +1,613 @@
+// Social Media Component Styles
+// Variables for consistent styling
+$social-primary: #3b82f6;
+$social-primary-hover: #2563eb;
+$social-primary-light: #dbeafe;
+$social-secondary: #6b7280;
+$social-border-radius: 8px;
+$social-border-radius-lg: 12px;
+$social-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+$social-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+$social-transition: all 0.2s ease;
+
+// Colors
+$social-bg-primary: #ffffff;
+$social-bg-secondary: #f9fafb;
+$social-bg-dark: #1f2937;
+$social-bg-dark-secondary: #374151;
+$social-text-primary: #111827;
+$social-text-secondary: #6b7280;
+$social-text-light: #9ca3af;
+$social-border: #e5e7eb;
+$social-border-dark: #4b5563;
+
+// Mixins for reusable styles
+@mixin social-card {
+  background: $social-bg-primary;
+  border: 1px solid $social-border;
+  border-radius: $social-border-radius;
+  box-shadow: $social-shadow;
+  transition: $social-transition;
+
+  .dark & {
+    background: $social-bg-dark;
+    border-color: $social-border-dark;
+  }
+
+  &:hover {
+    box-shadow: $social-shadow-hover;
+  }
+}
+
+@mixin social-button($variant: "primary") {
+  padding: 8px 16px;
+  border-radius: $social-border-radius;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: $social-transition;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  @if $variant == "primary" {
+    background: $social-primary;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: $social-primary-hover;
+    }
+  } @else if $variant == "secondary" {
+    background: transparent;
+    color: $social-text-secondary;
+
+    &:hover:not(:disabled) {
+      background: $social-bg-secondary;
+      color: $social-text-primary;
+    }
+
+    .dark & {
+      color: #9ca3af;
+
+      &:hover:not(:disabled) {
+        background: $social-bg-dark-secondary;
+        color: white;
+      }
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@mixin social-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid $social-border;
+  border-radius: $social-border-radius;
+  font-size: 14px;
+  transition: $social-transition;
+  resize: none;
+
+  &:focus {
+    outline: none;
+    border-color: $social-primary;
+    box-shadow: 0 0 0 3px rgba($social-primary, 0.1);
+  }
+
+  &::placeholder {
+    color: $social-text-light;
+  }
+
+  .dark & {
+    background: $social-bg-dark-secondary;
+    border-color: $social-border-dark;
+    color: white;
+
+    &::placeholder {
+      color: #6b7280;
+    }
+  }
+}
+
+@mixin social-avatar($size: 40px) {
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, $social-primary, $social-primary-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: #{$size * 0.4};
+  }
+}
+
+// Social Header Styles
+.social-header {
+  background: $social-primary;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+
+    .nav-item {
+      padding: 12px 16px;
+      border-radius: $social-border-radius;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      transition: $social-transition;
+      font-weight: 500;
+
+      &:hover,
+      &.active {
+        color: white;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      &.active {
+        border-bottom: 2px solid rgba(255, 255, 255, 0.8);
+      }
+    }
+  }
+
+  .header-search {
+    position: relative;
+
+    input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 8px 12px 8px 36px;
+      border-radius: $social-border-radius;
+      width: 300px;
+
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      &:focus {
+        outline: none;
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255, 255, 255, 0.6);
+    }
+  }
+}
+
+// Social Sidebar Styles
+.social-sidebar {
+  .sidebar-nav {
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: $social-border-radius;
+      color: $social-text-secondary;
+      text-decoration: none;
+      transition: $social-transition;
+      margin-bottom: 4px;
+
+      &:hover {
+        background: $social-bg-secondary;
+        color: $social-text-primary;
+      }
+
+      &.active {
+        background: $social-primary-light;
+        color: $social-primary;
+        border: 1px solid rgba($social-primary, 0.2);
+      }
+
+      .nav-icon {
+        flex-shrink: 0;
+      }
+
+      .nav-badge {
+        margin-left: auto;
+        background: $social-primary;
+        color: white;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 10px;
+
+        &.danger {
+          background: #ef4444;
+        }
+      }
+    }
+  }
+}
+
+// Post Styles
+.social-post {
+  @include social-card;
+  padding: 0;
+
+  .post-header {
+    padding: 16px 16px 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    .post-author {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .author-avatar {
+        @include social-avatar(40px);
+      }
+
+      .author-info {
+        h3 {
+          font-size: 14px;
+          font-weight: 600;
+          color: $social-text-primary;
+          margin: 0 0 2px 0;
+
+          .dark & {
+            color: white;
+          }
+        }
+
+        p {
+          font-size: 12px;
+          color: $social-text-light;
+          margin: 0;
+        }
+      }
+    }
+
+    .post-menu {
+      @include social-button("secondary");
+      padding: 4px;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  .post-content {
+    padding: 0 16px 12px;
+
+    .post-text {
+      color: $social-text-primary;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0 0 12px 0;
+
+      .dark & {
+        color: #f3f4f6;
+      }
+    }
+
+    .post-image {
+      border-radius: $social-border-radius;
+      overflow: hidden;
+      background: $social-bg-secondary;
+
+      img {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+    }
+  }
+
+  .post-actions {
+    border-top: 1px solid $social-border;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .dark & {
+      border-color: $social-border-dark;
+    }
+
+    .action-button {
+      @include social-button("secondary");
+      padding: 8px 12px;
+
+      &.liked {
+        color: $social-primary;
+        background: $social-primary-light;
+      }
+
+      .action-count {
+        background: $social-bg-secondary;
+        color: $social-text-secondary;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-left: 4px;
+
+        .dark & {
+          background: $social-bg-dark-secondary;
+        }
+      }
+    }
+  }
+}
+
+// Create Post Styles
+.create-post {
+  @include social-card;
+  padding: 16px;
+
+  .create-form {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    .user-avatar {
+      @include social-avatar(40px);
+    }
+
+    .create-input {
+      flex: 1;
+
+      textarea {
+        @include social-input;
+        min-height: 80px;
+        border: none;
+
+        &:focus {
+          border: none;
+          box-shadow: none;
+        }
+      }
+    }
+  }
+
+  .create-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid $social-border;
+
+    .dark & {
+      border-color: $social-border-dark;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 16px;
+
+      .action-btn {
+        @include social-button("secondary");
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+    }
+
+    .submit-btn {
+      @include social-button("primary");
+    }
+  }
+}
+
+// Trending Sidebar Styles
+.trending-sidebar {
+  .trending-section {
+    @include social-card;
+    margin-bottom: 16px;
+
+    .section-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid $social-border;
+
+      .dark & {
+        border-color: $social-border-dark;
+      }
+
+      h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: $social-text-primary;
+        margin: 0;
+
+        .dark & {
+          color: white;
+        }
+      }
+    }
+
+    .section-content {
+      padding: 16px;
+
+      .trending-item {
+        padding: 8px 12px;
+        border-radius: $social-border-radius;
+        cursor: pointer;
+        transition: $social-transition;
+        margin-bottom: 8px;
+
+        &:hover {
+          background: $social-bg-secondary;
+
+          .dark & {
+            background: $social-bg-dark-secondary;
+          }
+        }
+
+        .hashtag {
+          font-size: 14px;
+          font-weight: 600;
+          color: $social-text-primary;
+          margin: 0 0 2px 0;
+
+          .dark & {
+            color: white;
+          }
+        }
+
+        .category {
+          font-size: 12px;
+          color: $social-text-light;
+          margin: 0;
+        }
+      }
+
+      .suggested-user {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0;
+
+        .user-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .user-avatar {
+            @include social-avatar(32px);
+          }
+
+          .user-details {
+            h3 {
+              font-size: 14px;
+              font-weight: 600;
+              color: $social-text-primary;
+              margin: 0 0 2px 0;
+
+              .dark & {
+                color: white;
+              }
+            }
+
+            p {
+              font-size: 12px;
+              color: $social-text-light;
+              margin: 0;
+            }
+          }
+        }
+
+        .follow-btn {
+          @include social-button("primary");
+          padding: 6px 12px;
+          font-size: 12px;
+        }
+      }
+    }
+
+    .section-footer {
+      padding: 12px 16px;
+      border-top: 1px solid $social-border;
+
+      .dark & {
+        border-color: $social-border-dark;
+      }
+
+      .show-more {
+        color: $social-primary;
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+
+        &:hover {
+          color: $social-primary-hover;
+        }
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 1024px) {
+  .social-layout {
+    .left-sidebar,
+    .right-sidebar {
+      display: none;
+    }
+
+    .main-content {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .social-header {
+    .header-nav {
+      gap: 16px;
+
+      .nav-item {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+    }
+
+    .header-search input {
+      width: 200px;
+    }
+  }
+
+  .social-post {
+    .post-header {
+      padding: 12px 12px 8px;
+
+      .author-avatar {
+        @include social-avatar(32px);
+      }
+    }
+
+    .post-content {
+      padding: 0 12px 8px;
+    }
+
+    .post-actions {
+      padding: 8px 12px;
+
+      .action-button {
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+    }
+  }
+
+  .create-post {
+    padding: 12px;
+
+    .create-form {
+      gap: 8px;
+
+      .user-avatar {
+        @include social-avatar(32px);
+      }
+    }
+  }
+}

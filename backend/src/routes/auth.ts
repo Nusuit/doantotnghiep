@@ -5,6 +5,8 @@ import mysql from "mysql2/promise";
 import { sendVerificationEmail } from "../utils/email";
 import googleOAuthService from "../services/googleOAuth";
 import userService from "../services/userService";
+import smsService from "../services/smsService";
+import otpService from "../services/otpService";
 
 const router = Router();
 
@@ -43,7 +45,11 @@ const authenticateJWT = (req: any, res: Response, next: any) => {
 // Helper functions
 const generateTokens = (user: any) => {
   const accessToken = jwt.sign(
-    { id: user.id, email: user.email },
+    {
+      id: user.id,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+    },
     process.env.JWT_SECRET!,
     { expiresIn: "15m" }
   );
@@ -1178,6 +1184,270 @@ router.get("/google/callback", async (req: Request, res: Response) => {
       process.env.FRONTEND_URL
     }?error=oauth_failed&message=${encodeURIComponent(error.message)}`;
     res.redirect(errorUrl);
+  }
+});
+
+// =============================================================================
+// PHONE OTP AUTHENTICATION ROUTES
+// =============================================================================
+
+/**
+ * POST /api/auth/send-otp
+ * Send OTP code to phone number via SMS
+ */
+router.post("/send-otp", async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber } = req.body;
+
+    // Validate phone number format (Vietnam: +84xxxxxxxxx)
+    if (!phoneNumber || !phoneNumber.match(/^\+84\d{9,10}$/)) {
+      return res.status(400).json({
+        code: "INVALID_PHONE",
+        message: "Số điện thoại không hợp lệ. Định dạng: +84xxxxxxxxx",
+      });
+    }
+
+    console.log(`📱 OTP request for: ${phoneNumber}`);
+
+    // Check rate limiting
+    const rateLimit = await otpService.checkRateLimit(phoneNumber);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        code: "TOO_MANY_REQUESTS",
+        message: `Bạn đã vượt quá giới hạn ${rateLimit.limit} OTP/giờ. Vui lòng thử lại sau.`,
+        retryAfter: 3600, // seconds
+      });
+    }
+
+    // Generate OTP code
+    const otpCode = otpService.generateOtp();
+
+    // Store OTP in database
+    await otpService.storeOtp(phoneNumber, otpCode);
+
+    // Send SMS
+    const sent = await smsService.sendOtp(phoneNumber, otpCode);
+
+    if (!sent) {
+      return res.status(500).json({
+        code: "SMS_SEND_FAILED",
+        message: "Không thể gửi OTP. Vui lòng thử lại sau.",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "OTP đã được gửi đến số điện thoại của bạn",
+      phoneNumber: phoneNumber,
+      expiresIn: 300, // 5 minutes in seconds
+      otpSentAt: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error("❌ Send OTP error:", error);
+    res.status(500).json({
+      code: "INTERNAL_ERROR",
+      message: "Lỗi gửi OTP",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/auth/verify-otp
+ * Verify OTP and login/register user
+ */
+router.post("/verify-otp", async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber, otpCode } = req.body;
+
+    if (!phoneNumber || !otpCode) {
+      return res.status(400).json({
+        code: "BAD_REQUEST",
+        message: "Số điện thoại và mã OTP là bắt buộc",
+      });
+    }
+
+    console.log(`🔐 Verifying OTP for: ${phoneNumber}`);
+
+    // Verify OTP
+    const verificationResult = await otpService.verifyOtp(phoneNumber, otpCode);
+
+    if (!verificationResult.valid) {
+      const errorMessages: Record<string, string> = {
+        NO_OTP_FOUND: "Không tìm thấy mã OTP. Vui lòng yêu cầu gửi lại.",
+        OTP_ALREADY_USED: "Mã OTP đã được sử dụng.",
+        OTP_EXPIRED: "Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại.",
+        MAX_ATTEMPTS_EXCEEDED:
+          "Bạn đã nhập sai quá 3 lần. Vui lòng yêu cầu gửi OTP mới.",
+        INVALID_OTP_CODE: "Mã OTP không đúng. Vui lòng thử lại.",
+        VERIFICATION_ERROR: "Lỗi xác thực OTP.",
+      };
+
+      return res.status(401).json({
+        code: verificationResult.reason || "INVALID_OTP",
+        message:
+          errorMessages[verificationResult.reason || ""] ||
+          "Mã OTP không hợp lệ",
+      });
+    }
+
+    // OTP is valid - check if user exists
+    const [users] = (await pool.query(
+      "SELECT id, phone_number, email, account_status FROM users WHERE phone_number = ? LIMIT 1",
+      [phoneNumber]
+    )) as any;
+
+    let user;
+    let isNewUser = false;
+
+    if (users.length === 0) {
+      // Create new user with phone number
+      console.log(`👤 Creating new user with phone: ${phoneNumber}`);
+
+      const [result] = (await pool.execute(
+        `INSERT INTO users (phone_number, is_phone_verified, account_status, role, created_at, updated_at)
+         VALUES (?, true, 'active', 'user', NOW(), NOW())`,
+        [phoneNumber]
+      )) as any;
+
+      user = {
+        id: result.insertId,
+        phoneNumber: phoneNumber,
+        email: null,
+        accountStatus: "active",
+        role: "user",
+      };
+
+      isNewUser = true;
+
+      // Create default user profile
+      const displayName = `User${result.insertId}`;
+      await pool.execute(
+        `INSERT INTO user_profiles (user_id, display_name, created_at, updated_at)
+         VALUES (?, ?, NOW(), NOW())`,
+        [user.id, displayName]
+      );
+
+      console.log(`✅ New user created: ID ${user.id}`);
+    } else {
+      user = {
+        id: users[0].id,
+        phoneNumber: users[0].phone_number,
+        email: users[0].email,
+        accountStatus: users[0].account_status,
+      };
+
+      // Update phone verification status
+      await pool.execute(
+        "UPDATE users SET is_phone_verified = true, last_login_at = NOW() WHERE id = ?",
+        [user.id]
+      );
+
+      console.log(`✅ Existing user logged in: ID ${user.id}`);
+    }
+
+    // Check account status
+    if (user.accountStatus !== "active") {
+      return res.status(403).json({
+        code: "ACCOUNT_DISABLED",
+        message: "Tài khoản đã bị khóa",
+      });
+    }
+
+    // Generate JWT tokens
+    const { accessToken, refreshToken } = generateTokens({
+      id: user.id,
+      phoneNumber: user.phoneNumber,
+      email: user.email,
+    });
+
+    const expTime = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    // Store refresh token
+    await pool.execute(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at, user_agent, ip, revoked)
+       VALUES (?, ?, ?, ?, ?, false)`,
+      [
+        user.id,
+        refreshToken,
+        expTime,
+        req.headers["user-agent"] || null,
+        req.ip || null,
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: isNewUser ? "Đăng ký thành công!" : "Đăng nhập thành công!",
+      user: {
+        id: user.id,
+        phoneNumber: user.phoneNumber,
+        email: user.email,
+        accountStatus: user.accountStatus,
+      },
+      tokens: {
+        accessToken,
+        refreshToken,
+      },
+      isNewUser,
+    });
+  } catch (error: any) {
+    console.error("❌ Verify OTP error:", error);
+    res.status(500).json({
+      code: "INTERNAL_ERROR",
+      message: "Lỗi xác thực OTP",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/auth/resend-otp
+ * Resend OTP to the same phone number
+ */
+router.post("/resend-otp", async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber } = req.body;
+
+    if (!phoneNumber || !phoneNumber.match(/^\+84\d{9,10}$/)) {
+      return res.status(400).json({
+        code: "INVALID_PHONE",
+        message: "Số điện thoại không hợp lệ",
+      });
+    }
+
+    // Check rate limiting
+    const rateLimit = await otpService.checkRateLimit(phoneNumber);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        code: "TOO_MANY_REQUESTS",
+        message: `Bạn đã vượt quá giới hạn ${rateLimit.limit} OTP/giờ`,
+      });
+    }
+
+    // Generate and send new OTP
+    const otpCode = otpService.generateOtp();
+    await otpService.storeOtp(phoneNumber, otpCode);
+    const sent = await smsService.sendOtp(phoneNumber, otpCode);
+
+    if (!sent) {
+      return res.status(500).json({
+        code: "SMS_SEND_FAILED",
+        message: "Không thể gửi OTP",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "OTP mới đã được gửi",
+      expiresIn: 300,
+    });
+  } catch (error: any) {
+    console.error("❌ Resend OTP error:", error);
+    res.status(500).json({
+      code: "INTERNAL_ERROR",
+      message: "Lỗi gửi lại OTP",
+    });
   }
 });
 

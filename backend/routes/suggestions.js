@@ -4,9 +4,9 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const jwt = require("jsonwebtoken");
 
-const requireAuth = require("../src/middleware/requireAuth");
+const requireAuth = require("../middleware/requireAuth");
 
-const { validate } = require("../src/middleware/validate");
+const { validate } = require("../middleware/validate");
 const { z } = require("zod");
 
 const suggestionSchema = z.object({
@@ -16,7 +16,7 @@ const suggestionSchema = z.object({
 // POST /api/articles/:id/suggestions
 router.post(
   "/articles/:id/suggestions",
-    requireAuth,
+  requireAuth,
   validate(suggestionSchema),
   async (req, res, next) => {
     try {
@@ -120,7 +120,6 @@ router.post("/:sid/reject", async (req, res) => {
 });
 
 // POST /api/suggestions/:sid/appeal
-router.post("/:sid/appeal", authenticateJWT, async (req, res) => {
 router.post("/:sid/appeal", requireAuth, async (req, res) => {
   const sid = req.params.sid;
   const userId = req.user.id;
@@ -151,7 +150,7 @@ router.get("/judiciary/cases", async (req, res) => {
   });
   res.json({ cases });
 });
-router.post("/judiciary/cases", authenticateJWT, async (req, res) => {
+router.post("/judiciary/cases", requireAuth, async (req, res) => {
   // Tạo vụ phán quyết cho suggestion appeal
   const { suggestionId, councilIds } = req.body;
   // Kiểm tra suggestion ở trạng thái appeal

@@ -1,10 +1,13 @@
 {
-  "name": "backend",
+  "name": "@doantotnghiep/backend",
   "version": "1.0.0",
-  "main": "src/server.ts",
+  "main": "index.js",
   "scripts": {
-    "start": "ts-node src/server.ts",
-    "dev": "nodemon src/server.ts"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "dev:ts": "tsx watch src/index.ts",
+    "build": "tsc",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@prisma/client": "^6.16.1",
@@ -19,7 +22,10 @@
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.6.0",
     "nodemailer": "^7.0.6",
-    "prisma": "^6.16.1"
+    "prisma": "^6.16.1",
+    "twilio": "^5.10.5",
+    "@repo/prisma": "*",
+    "@repo/shared": "*"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

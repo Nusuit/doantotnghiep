@@ -19,24 +19,30 @@ function authenticateJWT(req, res, next) {
 // POST /api/articles
 router.post("/", async (req, res, next) => {
   try {
-    // ...existing code...
-    const articleController = require("../src/modules/articles/controller");
+    // Implementation for creating article
+    const { title, content, placeId } = req.body;
 
-    // Ai cũng có thể tạo bài viết
-    router.post("/", articleController.createArticle);
-    // ...existing code...
-    res.json({ message: "get article" });
-    router.get("/:id", articleController.getArticle);
-    router.put("/:id", articleController.updateArticle);
-    router.delete("/:id", articleController.deleteArticle);
-    const article = await prisma.article.findUnique({
-      where: { id: articleId },
-    router.get("/featured", articleController.getFeaturedArticles);
+    // Basic validation
+    if (!title || !content) {
+      return res.status(400).json({ error: "Title and content are required" });
     }
-    // ...existing code...
-    res.json({ message: "delete article" });
+
+    const article = await prisma.article.create({
+      data: {
+        title,
+        content,
+        placeId: placeId || null,
+        authorId: req.user ? req.user.id : null,
+      },
+    });
+
+    res.json({
+      code: "OK",
+      message: "Article created successfully",
+      data: article,
+    });
   } catch (err) {
-    next({ code: "ERR_DELETE_ARTICLE", status: 500, message: err.message });
+    next({ code: "ERR_CREATE_ARTICLE", status: 500, message: err.message });
   }
 });
 
@@ -171,6 +177,158 @@ router.post("/:id/unlock", authenticateJWT, async (req, res) => {
     data: { articleId, userId, unlockedAt: new Date() },
   });
   res.json({ message: "Article unlocked", authorShare });
+});
+
+// GET /api/articles/:id - Get single article
+router.get("/:id", async (req, res, next) => {
+  try {
+    const articleId = req.params.id;
+    const article = await prisma.article.findUnique({
+      where: { id: articleId },
+      include: {
+        author: { select: { id: true, name: true, reputation: true } },
+        place: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!article) {
+      return res.status(404).json({ error: "Article not found" });
+    }
+
+    res.json({
+      code: "OK",
+      message: "Article retrieved successfully",
+      data: article,
+    });
+  } catch (err) {
+    next({ code: "ERR_GET_ARTICLE", status: 500, message: err.message });
+  }
+});
+
+// PUT /api/articles/:id - Update article
+router.put("/:id", authenticateJWT, async (req, res, next) => {
+  try {
+    const articleId = req.params.id;
+    const { title, content } = req.body;
+    const userId = req.user.id;
+
+    // Check if article exists and user is the author
+    const existingArticle = await prisma.article.findUnique({
+      where: { id: articleId },
+    });
+
+    if (!existingArticle) {
+      return res.status(404).json({ error: "Article not found" });
+    }
+
+    if (existingArticle.authorId !== userId) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to update this article" });
+    }
+
+    const updatedArticle = await prisma.article.update({
+      where: { id: articleId },
+      data: {
+        title: title || existingArticle.title,
+        content: content || existingArticle.content,
+        updatedAt: new Date(),
+      },
+    });
+
+    res.json({
+      code: "OK",
+      message: "Article updated successfully",
+      data: updatedArticle,
+    });
+  } catch (err) {
+    next({ code: "ERR_UPDATE_ARTICLE", status: 500, message: err.message });
+  }
+});
+
+// DELETE /api/articles/:id - Delete article
+router.delete("/:id", authenticateJWT, async (req, res, next) => {
+  try {
+    const articleId = req.params.id;
+    const userId = req.user.id;
+
+    // Check if article exists and user is the author
+    const existingArticle = await prisma.article.findUnique({
+      where: { id: articleId },
+    });
+
+    if (!existingArticle) {
+      return res.status(404).json({ error: "Article not found" });
+    }
+
+    if (existingArticle.authorId !== userId) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to delete this article" });
+    }
+
+    await prisma.article.delete({
+      where: { id: articleId },
+    });
+
+    res.json({
+      code: "OK",
+      message: "Article deleted successfully",
+    });
+  } catch (err) {
+    next({ code: "ERR_DELETE_ARTICLE", status: 500, message: err.message });
+  }
+});
+
+// GET /api/articles - Get all articles with pagination
+router.get("/", async (req, res, next) => {
+  try {
+    let { page = 1, limit = 10, search = "" } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
+    if (page < 1) page = 1;
+    if (limit < 1 || limit > 50) limit = 10;
+    const skip = (page - 1) * limit;
+
+    const where = search
+      ? {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { content: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {};
+
+    const [totalItems, articles] = await Promise.all([
+      prisma.article.count({ where }),
+      prisma.article.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          author: { select: { id: true, name: true, reputation: true } },
+          place: { select: { id: true, name: true } },
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    res.json({
+      code: "OK",
+      message: "Articles retrieved successfully",
+      data: articles,
+      pagination: {
+        page,
+        limit,
+        totalPages,
+        totalItems,
+      },
+    });
+  } catch (err) {
+    next({ code: "ERR_GET_ARTICLES", status: 500, message: err.message });
+  }
 });
 
 module.exports = router;

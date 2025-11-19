@@ -430,4 +430,21 @@ router.get("/profile", authenticateJWT, async (req, res) => {
   }
 });
 
+// GET /api/auth/google
+router.get("/google", async (req, res) => {
+  try {
+    // For now, return a placeholder response
+    // TODO: Implement actual Google OAuth flow
+    res.json({
+      success: true,
+      message: "Google OAuth endpoint - not yet implemented",
+      authUrl:
+        "https://accounts.google.com/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&scope=email%20profile&response_type=code",
+    });
+  } catch (error) {
+    console.error("Google OAuth error:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
 module.exports = router;

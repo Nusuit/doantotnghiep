@@ -3,7 +3,7 @@ const router = express.Router();
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-const { requireRole } = require("../src/middleware/rbac");
+const { requireRole } = require("../middleware/rbac");
 
 // POST /api/admin/articles/:id/audit
 router.post("/articles/:id/audit", requireRole(["admin"]), async (req, res) => {
