@@ -3,7 +3,7 @@ const router = express.Router();
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-const { validate } = require("../src/middleware/validate");
+const { validate } = require("../middleware/validate");
 const { z } = require("zod");
 
 const placeSchema = z.object({

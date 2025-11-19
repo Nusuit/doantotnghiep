@@ -3,8 +3,8 @@ const router = express.Router();
 
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
-const { checkAILimit } = require("../src/modules/ai/limits");
-const { logWalletAction } = require("../src/modules/wallet/auditTrail");
+// const { checkAILimit } = require("../src/modules/ai/limits");
+// const { logWalletAction } = require("../src/modules/wallet/auditTrail");
 
 // POST /api/ai/chat/sessions
 router.post("/chat/sessions", async (req, res) => {

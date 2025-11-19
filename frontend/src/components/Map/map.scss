@@ -1,0 +1,274 @@
+// Map Component Styles
+// Variables for consistent styling
+$map-border-radius: 8px;
+$map-shadow-light: 0 4px 12px rgba(0, 0, 0, 0.1);
+$map-shadow-heavy: 0 10px 25px rgba(0, 0, 0, 0.1);
+$map-transition: all 0.2s ease;
+
+// Colors
+$map-bg-light: #ffffff;
+$map-bg-dark: #1f2937;
+$map-controls-dark: #374151;
+$map-hover-light: rgba(0, 0, 0, 0.05);
+$map-hover-dark: rgba(255, 255, 255, 0.1);
+
+// Mixins for reusable styles
+@mixin map-card {
+  background: $map-bg-light;
+  border-radius: $map-border-radius;
+  box-shadow: $map-shadow-light;
+  transition: $map-transition;
+
+  .dark & {
+    background: $map-bg-dark;
+  }
+}
+
+@mixin map-button {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: $map-transition;
+
+  &:hover {
+    background: $map-hover-light;
+  }
+
+  .dark &:hover {
+    background: $map-hover-dark;
+  }
+}
+
+@mixin map-popup {
+  padding: 0;
+  border-radius: $map-border-radius;
+  box-shadow: $map-shadow-heavy;
+
+  .dark & {
+    background: $map-bg-dark;
+    color: white;
+  }
+}
+
+// MapBox GL Overrides
+.mapboxgl-popup-content {
+  @include map-popup;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: $map-bg-light;
+
+  .dark & {
+    border-top-color: $map-bg-dark;
+  }
+}
+
+.mapboxgl-ctrl-group {
+  @include map-card;
+
+  .dark & {
+    background: $map-controls-dark;
+  }
+}
+
+.mapboxgl-ctrl button {
+  @include map-button;
+}
+
+// Custom Map Components
+.map-container {
+  @include map-card;
+  overflow: hidden;
+
+  &.loading {
+    position: relative;
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+}
+
+.map-controls {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .control-group {
+    @include map-card;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    select,
+    button {
+      @include map-button;
+      font-size: 14px;
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+.map-marker {
+  cursor: pointer;
+  transition: $map-transition;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+
+  &:hover {
+    transform: scale(1.1);
+  }
+
+  &.restaurant {
+    .marker-bg {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+  }
+
+  &.location {
+    .marker-bg {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+    }
+  }
+}
+
+.map-popup-content {
+  padding: 16px;
+  max-width: 300px;
+
+  .popup-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+
+    .popup-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+    }
+
+    .popup-info {
+      flex: 1;
+
+      h3 {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+        color: #1f2937;
+
+        .dark & {
+          color: #f9fafb;
+        }
+      }
+
+      p {
+        font-size: 14px;
+        margin: 0;
+        color: #6b7280;
+
+        .dark & {
+          color: #9ca3af;
+        }
+      }
+    }
+  }
+
+  .popup-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+
+    button {
+      @include map-button;
+      font-size: 12px;
+      background: #3b82f6;
+      color: white;
+
+      &:hover {
+        background: #2563eb;
+      }
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .mapboxgl-ctrl-top-right {
+    top: 10px !important;
+    right: 10px !important;
+  }
+
+  .mapboxgl-ctrl-top-left {
+    top: 10px !important;
+    left: 10px !important;
+  }
+
+  .map-controls {
+    top: 10px;
+    left: 10px;
+
+    .control-group {
+      padding: 6px;
+      gap: 6px;
+
+      select,
+      button {
+        padding: 6px 10px;
+        font-size: 13px;
+      }
+    }
+  }
+
+  .map-popup-content {
+    padding: 12px;
+    max-width: 250px;
+
+    .popup-header {
+      gap: 8px;
+      margin-bottom: 8px;
+
+      .popup-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+      }
+
+      .popup-info {
+        h3 {
+          font-size: 14px;
+        }
+
+        p {
+          font-size: 12px;
+        }
+      }
+    }
+  }
+}
