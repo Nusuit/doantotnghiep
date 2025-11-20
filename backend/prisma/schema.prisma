@@ -53,6 +53,7 @@ model User {
   articles              Article[]
   votes                 Vote[]
   pointTransactions     PointTransaction[]
+  places                Place[]
   
   @@index([email], map: "idx_email")
   @@index([phoneNumber], map: "idx_phone_number")
@@ -158,25 +159,26 @@ model FavoriteLocation {
 }
 
 model Place {
-  id          String   @id @default(cuid())
-  name        String   @db.VarChar(255)
-  address     String?  @db.VarChar(500)
-  lat         Float
-  lng         Float
-  category    String   @db.VarChar(100)
-  rating      Float?  
-  priceLevel  Int?     @map("price_level")
+  id          Int      @id @default(autoincrement())
+  name        String
   description String?  @db.Text
-  phone       String?  @db.VarChar(20)
-  website     String?  @db.VarChar(500)
-  imageUrl    String?  @map("image_url") @db.VarChar(500)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
   
-  @@index([lat, lng], map: "idx_place_coords")
-  @@index([category], map: "idx_place_category")
-  @@index([rating], map: "idx_place_rating")
-  @@map("places")
+  // Location Data
+  address     String?
+  latitude    Float    // Postgres double precision
+  longitude   Float    // Postgres double precision
+  
+  // Metadata
+  category    String   @default("GENERAL") // RESTAURANT, CAFE, CHECKIN
+  coverImage  String?
+  
+  // Knowledge Connection
+  authorId    Int
+  author      User     @relation(fields: [authorId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([latitude, longitude]) // Geo-spatial index preparation
 }
 
 // USER CREATED RESTAURANTS - Quán ăn do người dùng tạo
