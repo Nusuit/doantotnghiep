@@ -14,8 +14,6 @@
     "baseUrl": ".",
     "paths": {
       "@repo/prisma": ["../../packages/prisma"],
-      "@repo/shared": ["../../packages/shared"],
-      "@repo/shared/*": ["../../packages/shared/*"]
     }
   },
   "include": ["src/**/*"],

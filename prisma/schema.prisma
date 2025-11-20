@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  walletAddress   String    @unique
+  username        String?
+  role            String    @default("USER")
+  
+  // Web2.5 Scoring System
+  reputationScore Int       @default(0) // For Leaderboard
+  knowUBalance    Float     @default(0.0) // Utility Token Balance
+  
+  articles        Article[]
+  votes           Vote[]
+  histories       ArticleHistory[]
+  pointTx         PointTransaction[]
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([reputationScore(sort: Desc)])
+}
+
+model Article {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  title       String
+  content     String    @db.Text
+  arweaveHash String?   // For Web3 expansion
+  status      String    @default("PUBLISHED")
+  
+  authorId    Int
+  author      User      @relation(fields: [authorId], references: [id])
+  
+  history     ArticleHistory[]
+  votes       Vote[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([slug])
+}
+
+model ArticleHistory {
+  id          Int      @id @default(autoincrement())
+  articleId   Int
+  editorId    Int
+  oldContent  String   @db.Text
+  changeNote  String?
+  createdAt   DateTime @default(now())
+
+  article     Article  @relation(fields: [articleId], references: [id])
+  editor      User     @relation(fields: [editorId], references: [id])
+}
+
+model Vote {
+  id        Int      @id @default(autoincrement())
+  type      String   // UP, DOWN
+  userId    Int
+  articleId Int
+  
+  user      User     @relation(fields: [userId], references: [id])
+  article   Article  @relation(fields: [articleId], references: [id])
+
+  @@unique([userId, articleId])
+}
+
+model PointTransaction {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  amount      Float
+  reasonCode  String   
+  refId       Int?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+}

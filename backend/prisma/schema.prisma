@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -16,6 +16,13 @@ model User {
   email                   String?   @unique @db.VarChar(255)
   phoneNumber            String?   @unique @map("phone_number") @db.VarChar(20)
   passwordHash           String?   @map("password_hash") @db.VarChar(255)
+  
+  // Web2.5 - Solana Wallet Integration
+  walletAddress          String?   @unique @map("wallet_address") @db.VarChar(44)
+  
+  // Web2.5 - Reputation & Token System
+  reputationScore        Int       @default(0) @map("reputation_score")
+  knowUBalance           Float     @default(0.0) @map("know_u_balance")
   
   // Account status
   accountStatus          AccountStatus @default(ACTIVE) @map("account_status")
@@ -43,9 +50,14 @@ model User {
   conversations         Conversation[]
   favoriteLocations     FavoriteLocation[]
   restaurants           Restaurant[]
+  articles              Article[]
+  votes                 Vote[]
+  pointTransactions     PointTransaction[]
   
   @@index([email], map: "idx_email")
   @@index([phoneNumber], map: "idx_phone_number")
+  @@index([walletAddress], map: "idx_wallet_address")
+  @@index([reputationScore(sort: Desc)], map: "idx_reputation_score")
   @@index([accountStatus], map: "idx_account_status")
   @@index([role], map: "idx_role")
   @@index([passwordResetToken], map: "idx_password_reset_token")
@@ -152,7 +164,7 @@ model Place {
   lat         Float
   lng         Float
   category    String   @db.VarChar(100)
-  rating      Float?   @db.Float
+  rating      Float?  
   priceLevel  Int?     @map("price_level")
   description String?  @db.Text
   phone       String?  @db.VarChar(20)
@@ -174,8 +186,8 @@ model Restaurant {
   name        String    @db.VarChar(255)
   description String    @db.Text
   address     String    @db.VarChar(500)
-  latitude    Float     @db.Float
-  longitude   Float     @db.Float
+  latitude    Float     
+  longitude   Float     
   
   // Optional fields
   phone       String?   @db.VarChar(20)
@@ -241,3 +253,58 @@ enum Gender {
   @@map("gender")
 }
 
+// KNOWLEDGE PLATFORM MODELS - Web2.5 Integration
+model Article {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique @db.VarChar(255)
+  title       String    @db.VarChar(500)
+  content     String    @db.Text
+  arweaveHash String?   @map("arweave_hash") @db.VarChar(100)
+  status      String    @default("PUBLISHED") @db.VarChar(20)
+  
+  authorId    Int       @map("author_id")
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  votes       Vote[]
+  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  @@index([slug], map: "idx_article_slug")
+  @@index([authorId], map: "idx_article_author")
+  @@index([status], map: "idx_article_status")
+  @@map("articles")
+}
+
+model Vote {
+  id        Int      @id @default(autoincrement())
+  type      String   @db.VarChar(10) // UP, DOWN
+  userId    Int      @map("user_id")
+  articleId Int      @map("article_id")
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, articleId], map: "unique_user_article_vote")
+  @@index([userId], map: "idx_vote_user")
+  @@index([articleId], map: "idx_vote_article")
+  @@map("votes")
+}
+
+model PointTransaction {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  amount      Float
+  reasonCode  String   @map("reason_code") @db.VarChar(50)
+  refId       Int?     @map("ref_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId], map: "idx_point_tx_user")
+  @@index([reasonCode], map: "idx_point_tx_reason")
+  @@index([createdAt], map: "idx_point_tx_created")
+  @@map("point_transactions")
+}

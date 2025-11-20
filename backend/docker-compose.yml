@@ -1,4 +1,5 @@
 version: "3.8"
+
 services:
   backend:
     build: .
@@ -8,10 +9,25 @@ services:
       - .env
     depends_on:
       - db
-  db:
-    image: mysql:8
+    # Lệnh này giúp backend chờ DB khởi động xong mới chạy (tránh crash)
+    restart: always 
     environment:
-      MYSQL_ROOT_PASSWORD: your_password
-      MYSQL_DATABASE: knowledge_sharing
+      # QUAN TRỌNG: Ghi đè biến DATABASE_URL để trỏ đúng vào service 'db'
+      # Trong Docker, host không phải là localhost mà là tên service (db)
+      - DATABASE_URL=postgresql://postgres:123456@db:5432/knowledge_sharing?schema=public
+
+  db:
+    image: postgres:16-alpine
+    container_name: knowledge_db_container # Đặt tên cho dễ tìm
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: knowledge_sharing
     ports:
-      - "3306:3306"
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
