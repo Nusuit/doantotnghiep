@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import TiptapEditor from "../ui/TiptapEditor";
 
 interface CreatePostProps {
   className?: string;
@@ -32,12 +33,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ className = "", onPost }) => {
 
             {/* Input Area */}
             <div className="flex-1">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
+              <TiptapEditor
+                content={content}
+                onChange={setContent}
                 placeholder="What's on your mind?"
-                className="w-full resize-none border-0 focus:ring-0 focus:outline-none placeholder-gray-500 text-gray-800 text-sm"
-                rows={3}
               />
             </div>
           </div>

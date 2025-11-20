@@ -55,6 +55,11 @@ model User {
   pointTransactions     PointTransaction[]
   places                Place[]
   
+  // Web2 Features Relations
+  articleEdits          ArticleHistory[] @relation("ArticleEditor")
+  series                Series[]
+  badges                UserBadge[]
+  
   @@index([email], map: "idx_email")
   @@index([phoneNumber], map: "idx_phone_number")
   @@index([walletAddress], map: "idx_wallet_address")
@@ -267,7 +272,12 @@ model Article {
   authorId    Int       @map("author_id")
   author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   
+  // Relations
   votes       Vote[]
+  history     ArticleHistory[]
+  categories  Category[]
+  tags        Tag[]
+  series      SeriesArticle[]
   
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -276,6 +286,102 @@ model Article {
   @@index([authorId], map: "idx_article_author")
   @@index([status], map: "idx_article_status")
   @@map("articles")
+}
+
+// CONTENT EXPERIENCE MODELS
+model ArticleHistory {
+  id          Int      @id @default(autoincrement())
+  articleId   Int      @map("article_id")
+  editorId    Int      @map("editor_id")
+  title       String   @db.VarChar(500)
+  content     String   @db.Text
+  changeNote  String?  @map("change_note") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  editor      User     @relation("ArticleEditor", fields: [editorId], references: [id])
+
+  @@index([articleId], map: "idx_history_article")
+  @@index([editorId], map: "idx_history_editor")
+  @@map("article_histories")
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  slug        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  parentId    Int?      @map("parent_id")
+  
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  articles    Article[]
+  
+  @@index([parentId], map: "idx_category_parent")
+  @@map("categories")
+}
+
+model Tag {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(50)
+  slug        String    @unique @db.VarChar(50)
+  
+  articles    Article[]
+  
+  @@map("tags")
+}
+
+// DISCOVERY MODELS
+model Series {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  authorId    Int       @map("author_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  articles    SeriesArticle[]
+  
+  @@index([authorId], map: "idx_series_author")
+  @@map("series")
+}
+
+model SeriesArticle {
+  seriesId    Int       @map("series_id")
+  articleId   Int       @map("article_id")
+  order       Int       
+  
+  series      Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  article     Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([seriesId, articleId])
+  @@map("series_articles")
+}
+
+// GAMIFICATION MODELS
+model Badge {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  iconUrl     String?   @map("icon_url") @db.VarChar(500)
+  criteria    String?   @db.Text // JSON or text description of how to earn
+  
+  users       UserBadge[]
+  
+  @@map("badges")
+}
+
+model UserBadge {
+  userId      Int       @map("user_id")
+  badgeId     Int       @map("badge_id")
+  awardedAt   DateTime  @default(now()) @map("awarded_at")
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge       Badge     @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  
+  @@id([userId, badgeId])
+  @@map("user_badges")
 }
 
 model Vote {
