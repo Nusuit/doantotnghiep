@@ -3,6 +3,10 @@ dotenv.config();
 
 export const config = {
     port: process.env.PORT || 3000,
-    jwtSecret: process.env.JWT_SECRET || 'default_secret',
+    jwtSecret: process.env.JWT_SECRET,
     dbUrl: process.env.DATABASE_URL
 };
+
+if (!config.jwtSecret) {
+    throw new Error('Missing JWT_SECRET');
+}

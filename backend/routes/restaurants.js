@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { PrismaClient } = require("@prisma/client");
+const { z } = require("zod");
 
-const prisma = new PrismaClient();
+const requireAuth = require("../middleware/requireAuth");
+const { getPrisma } = require("../db/prisma");
 
 // MCP Geocoding function - Sẽ integrate với MCP server sau
 async function geocodeAddress(address) {
@@ -11,34 +12,90 @@ async function geocodeAddress(address) {
     // Tạm thời dùng mock data, sau sẽ thay bằng MCP call
     console.log(`Geocoding address: ${address}`);
 
-    // Mock geocoding - trong thực tế sẽ gọi MCP
-    const mockCoordinates = {
-      latitude: 10.7769 + (Math.random() - 0.5) * 0.1,
-      longitude: 106.6917 + (Math.random() - 0.5) * 0.1,
+    // Deterministic mock geocoding (stable per address)
+    const baseLat = 10.7769;
+    const baseLng = 106.6917;
+    const str = String(address || "");
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    }
+    const latOffset = ((hash % 1000) / 1000 - 0.5) * 0.1;
+    const lngOffset = (((hash / 1000) % 1000) / 1000 - 0.5) * 0.1;
+    return {
+      latitude: baseLat + latOffset,
+      longitude: baseLng + lngOffset,
     };
-
-    return mockCoordinates;
   } catch (error) {
     console.error("Geocoding error:", error);
     throw new Error("Unable to geocode address");
   }
 }
 
+const listQuerySchema = z.object({
+  userId: z.coerce.number().int().positive().optional(),
+  isActive: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true")),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+});
+
+const createBodySchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  address: z.string().min(1),
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
+  category: z.string().optional(),
+  phone: z.string().optional(),
+  website: z.string().optional(),
+  imageUrl: z.string().optional(),
+  priceLevel: z.coerce.number().int().min(0).max(5).optional(),
+});
+
+const idParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+const updateBodySchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    address: z.string().min(1).optional(),
+    latitude: z.coerce.number().optional(),
+    longitude: z.coerce.number().optional(),
+    category: z.string().optional(),
+    phone: z.string().optional(),
+    website: z.string().optional(),
+    imageUrl: z.string().optional(),
+    priceLevel: z.coerce.number().int().min(0).max(5).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "No fields to update" });
+
 // GET /api/restaurants - Lấy tất cả restaurants do user tạo
 router.get("/", async (req, res) => {
   try {
-    const { userId, isActive, limit = 50, offset = 0 } = req.query;
+    const parsed = listQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid query params",
+        issues: parsed.error.issues,
+      });
+    }
+
+    const { userId, isActive, limit, offset } = parsed.data;
+    const prisma = getPrisma();
 
     const whereClause = {};
 
-    // Only filter by isActive if explicitly provided
-    if (isActive !== undefined) {
-      whereClause.isActive = isActive === "true";
-    }
+    // Default: only active restaurants for public listing
+    whereClause.isActive = isActive === undefined ? true : isActive;
 
-    if (userId) {
-      whereClause.userId = parseInt(userId);
-    }
+    if (userId) whereClause.userId = userId;
 
     const restaurants = await prisma.restaurant.findMany({
       where: whereClause,
@@ -54,8 +111,8 @@ router.get("/", async (req, res) => {
       orderBy: {
         createdAt: "desc",
       },
-      take: parseInt(limit),
-      skip: parseInt(offset),
+      take: limit,
+      skip: offset,
     });
 
     const total = await prisma.restaurant.count({ where: whereClause });
@@ -66,9 +123,9 @@ router.get("/", async (req, res) => {
         restaurants,
         pagination: {
           total,
-          limit: parseInt(limit),
-          offset: parseInt(offset),
-          hasMore: parseInt(offset) + parseInt(limit) < total,
+          limit,
+          offset,
+          hasMore: offset + limit < total,
         },
       },
     });
@@ -83,38 +140,35 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/restaurants - Tạo restaurant mới
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   try {
+    const parsed = createBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid body",
+        issues: parsed.error.issues,
+      });
+    }
+
+    const prisma = getPrisma();
     const {
       name,
       description,
       address,
-      userId,
+      latitude,
+      longitude,
       category,
       phone,
       website,
       imageUrl,
       priceLevel,
-    } = req.body;
+    } = parsed.data;
 
-    // Validate required fields
-    if (!name || !description || !address || !userId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields: name, description, address, userId",
-      });
-    }
-
-    // Geocode the address using MCP
-    console.log("Starting geocoding for address:", address);
-    const coordinates = await geocodeAddress(address);
-
-    if (!coordinates || !coordinates.latitude || !coordinates.longitude) {
-      return res.status(400).json({
-        success: false,
-        message: "Unable to geocode the provided address",
-      });
-    }
+    const coordinates =
+      latitude !== undefined && longitude !== undefined
+        ? { latitude, longitude }
+        : await geocodeAddress(address);
 
     // Create restaurant in database
     const restaurant = await prisma.restaurant.create({
@@ -124,12 +178,12 @@ router.post("/", async (req, res) => {
         address: address.trim(),
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
-        userId: parseInt(userId),
+        userId: req.user.id,
         category: category?.trim() || null,
         phone: phone?.trim() || null,
         website: website?.trim() || null,
         imageUrl: imageUrl?.trim() || null,
-        priceLevel: priceLevel ? parseInt(priceLevel) : null,
+        priceLevel: priceLevel ?? null,
         isActive: true,
         isVerified: false,
       },
@@ -184,11 +238,19 @@ router.post("/", async (req, res) => {
 // GET /api/restaurants/:id - Lấy thông tin một restaurant
 router.get("/:id", async (req, res) => {
   try {
-    const { id } = req.params;
+    const parsedParams = idParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid id",
+        issues: parsedParams.error.issues,
+      });
+    }
 
-    const restaurant = await prisma.restaurant.findUnique({
+    const prisma = getPrisma();
+    const restaurant = await prisma.restaurant.findFirst({
       where: {
-        id: parseInt(id),
+        id: parsedParams.data.id,
         isActive: true,
       },
       include: {
@@ -230,23 +292,44 @@ router.get("/:id", async (req, res) => {
 });
 
 // PUT /api/restaurants/:id - Cập nhật restaurant
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAuth, async (req, res) => {
   try {
-    const { id } = req.params;
+    const parsedParams = idParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid id",
+        issues: parsedParams.error.issues,
+      });
+    }
+    const parsedBody = updateBodySchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid body",
+        issues: parsedBody.error.issues,
+      });
+    }
+
+    const prisma = getPrisma();
+    const { id } = parsedParams.data;
     const {
       name,
       description,
       address,
+      latitude,
+      longitude,
       category,
       phone,
       website,
       imageUrl,
       priceLevel,
-    } = req.body;
+      isActive,
+    } = parsedBody.data;
 
     // Check if restaurant exists and get current data
     const existingRestaurant = await prisma.restaurant.findUnique({
-      where: { id: parseInt(id) },
+      where: { id },
     });
 
     if (!existingRestaurant) {
@@ -256,9 +339,14 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    let updateData = {
-      updatedAt: new Date(),
-    };
+    if (existingRestaurant.userId !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden",
+      });
+    }
+
+    let updateData = {};
 
     // Only update fields that are provided
     if (name) updateData.name = name.trim();
@@ -267,19 +355,25 @@ router.put("/:id", async (req, res) => {
     if (phone) updateData.phone = phone.trim();
     if (website) updateData.website = website.trim();
     if (imageUrl) updateData.imageUrl = imageUrl.trim();
-    if (priceLevel !== undefined) updateData.priceLevel = parseInt(priceLevel);
+    if (priceLevel !== undefined) updateData.priceLevel = priceLevel;
+    if (isActive !== undefined) updateData.isActive = isActive;
 
-    // If address changed, re-geocode
     if (address && address.trim() !== existingRestaurant.address) {
+      updateData.address = address.trim();
+    }
+
+    if (latitude !== undefined && longitude !== undefined) {
+      updateData.latitude = latitude;
+      updateData.longitude = longitude;
+    } else if (address && address.trim() !== existingRestaurant.address) {
       console.log("Address changed, re-geocoding:", address);
       const coordinates = await geocodeAddress(address.trim());
-      updateData.address = address.trim();
       updateData.latitude = coordinates.latitude;
       updateData.longitude = coordinates.longitude;
     }
 
     const restaurant = await prisma.restaurant.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data: updateData,
       include: {
         user: {
@@ -314,12 +408,22 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/restaurants/:id - Xóa restaurant (soft delete)
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth, async (req, res) => {
   try {
-    const { id } = req.params;
+    const parsedParams = idParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid id",
+        issues: parsedParams.error.issues,
+      });
+    }
+
+    const prisma = getPrisma();
+    const { id } = parsedParams.data;
 
     const restaurant = await prisma.restaurant.findUnique({
-      where: { id: parseInt(id) },
+      where: { id },
     });
 
     if (!restaurant) {
@@ -329,12 +433,18 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
+    if (restaurant.userId !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden",
+      });
+    }
+
     // Soft delete
     await prisma.restaurant.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data: {
         isActive: false,
-        updatedAt: new Date(),
       },
     });
 

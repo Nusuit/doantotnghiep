@@ -4,7 +4,7 @@ services:
   backend:
     build: .
     ports:
-      - "3000:3000"
+      - "4000:4000"
     env_file:
       - .env
     depends_on:
@@ -12,6 +12,7 @@ services:
     # Lệnh này giúp backend chờ DB khởi động xong mới chạy (tránh crash)
     restart: always 
     environment:
+      - PORT=4000
       # QUAN TRỌNG: Ghi đè biến DATABASE_URL để trỏ đúng vào service 'db'
       # Trong Docker, host không phải là localhost mà là tên service (db)
       - DATABASE_URL=postgresql://postgres:123456@db:5432/knowledge_sharing?schema=public
@@ -25,7 +26,7 @@ services:
       POSTGRES_PASSWORD: 123456
       POSTGRES_DB: knowledge_sharing
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

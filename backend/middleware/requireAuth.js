@@ -9,7 +9,7 @@ function requireAuth(req, res, next) {
       message: "No token provided",
     });
   try {
-    const user = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
+    const user = jwt.verify(token, process.env.JWT_SECRET);
     req.user = user;
     next();
   } catch (err) {

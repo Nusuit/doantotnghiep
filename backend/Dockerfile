@@ -20,11 +20,11 @@ RUN npx prisma generate
 # 5. Giờ mới copy toàn bộ code nguồn vào
 COPY . .
 
-# 6. Build TypeScript sang JavaScript (Ra thư mục dist)
+# 6. Build TypeScript (primary runtime)
 RUN npm run build
 
 # 7. Mở port
-EXPOSE 3000
+EXPOSE 4000
 
 # 8. Chạy lệnh start (Lưu ý check package.json xem lệnh start chạy file nào)
 # Thường là: "start": "node dist/app.js" hoặc "node dist/main.js"

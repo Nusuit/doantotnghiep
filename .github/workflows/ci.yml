@@ -1,23 +1,31 @@
 name: CI
+
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+
 jobs:
-  build:
+  backend-prisma:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - name: Install dependencies
-        run: npm install
-      - name: Lint
-        run: npm run lint || true
-      - name: Test
-        run: npm test || true
-      - name: Build
-        run: npm run build || true
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma validate/format/generate
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+        run: |
+          npm run prisma:validate
+          npm run prisma:format:check
+          npm run prisma:generate

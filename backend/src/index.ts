@@ -1,6 +1,8 @@
-import app from './app';
-import { config } from './config';
+import { createApp } from "./app";
 
-app.listen(config.port, () => {
-    console.log(`Server is running on port ${config.port}`);
+const { app, env } = createApp();
+
+app.listen(env.PORT, () => {
+    // eslint-disable-next-line no-console
+    console.log(`Backend running on port ${env.PORT}`);
 });
