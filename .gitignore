@@ -89,3 +89,6 @@ Thumbs.db
 .dockerignore
 *.local
 .agent
+
+# Logs
+*.out
