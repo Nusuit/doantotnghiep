@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Search,
   Home,
@@ -16,7 +17,8 @@ import {
 } from "lucide-react";
 
 const SocialHeaderNew: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const { user, session } = useCurrentUser();
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,6 +27,9 @@ const SocialHeaderNew: React.FC = () => {
     logout();
     router.push("/");
   };
+
+  const displayName = user?.profile?.displayName || session?.email || "Guest";
+  const displayEmail = session?.email || "";
 
   const handleNavigation = (path: string) => {
     router.push(path);
@@ -108,7 +113,7 @@ const SocialHeaderNew: React.FC = () => {
                   <User className="w-5 h-5 text-teal-600" />
                 </div>
                 <span className="hidden sm:block font-medium">
-                  {user?.name}
+                  {displayName}
                 </span>
               </button>
 
@@ -116,9 +121,9 @@ const SocialHeaderNew: React.FC = () => {
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                   <div className="px-4 py-2 border-b border-gray-100">
                     <p className="text-sm font-medium text-gray-900">
-                      {user?.name}
+                      {displayName}
                     </p>
-                    <p className="text-xs text-gray-500">{user?.email}</p>
+                    <p className="text-xs text-gray-500">{displayEmail}</p>
                   </div>
                   <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
                     <Settings className="w-4 h-4" />
