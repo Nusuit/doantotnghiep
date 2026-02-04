@@ -19,6 +19,8 @@ export interface MapMarker {
   description?: string;
   icon?: string;
   color?: string;
+  type?: string;
+  image?: string;
 }
 
 export interface MapPopup {

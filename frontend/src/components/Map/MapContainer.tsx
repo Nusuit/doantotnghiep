@@ -18,6 +18,8 @@ interface MapContainerProps {
   onClick?: (event: any) => void;
   children?: React.ReactNode;
   showControls?: boolean;
+  onMoveEnd?: (event: any) => void;
+  interactiveLayerIds?: string[];
 }
 
 const MapContainer: React.FC<MapContainerProps> = ({
@@ -27,6 +29,8 @@ const MapContainer: React.FC<MapContainerProps> = ({
   onClick,
   children,
   showControls = true,
+  onMoveEnd,
+  interactiveLayerIds,
 }) => {
   const {
     mapRef,
@@ -77,8 +81,10 @@ const MapContainer: React.FC<MapContainerProps> = ({
         ref={mapRef}
         {...viewState}
         onMove={onMove}
+        onMoveEnd={onMoveEnd}
         onLoad={handleMapLoad}
         onClick={onClick}
+        interactiveLayerIds={interactiveLayerIds}
         mapboxAccessToken={mapboxAccessToken}
         style={{ width: "100%", height: "100%" }}
         mapStyle={mapStyle}

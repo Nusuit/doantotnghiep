@@ -37,7 +37,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
         // Set access token (should be in environment variables)
         mapboxgl.default.accessToken =
-          process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+          process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
         if (!mapboxgl.default.accessToken) {
           console.error("MapBox access token not found");
@@ -135,23 +135,17 @@ const MapComponent: React.FC<MapComponentProps> = ({
     return colors[category || "default"];
   };
 
-  if (isLoading) {
-    return (
-      <div
-        className="flex items-center justify-center bg-gray-100 rounded-lg"
-        style={{ height }}
-      >
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
-          <p className="text-gray-600">Đang tải bản đồ...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="relative rounded-lg overflow-hidden">
-      <div ref={mapContainer} className="w-full" style={{ height }} />
+    <div className="relative rounded-lg overflow-hidden" style={{ height }}>
+      {isLoading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100 dark:bg-[#161920]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
+            <p className="text-gray-600 dark:text-gray-400">Đang tải bản đồ...</p>
+          </div>
+        </div>
+      )}
+      <div ref={mapContainer} className="w-full h-full" />
     </div>
   );
 };

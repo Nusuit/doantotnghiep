@@ -1,42 +1,26 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_BASE_API_URL } from "@/lib/config";
+
+const API_BASE_URL = API_BASE_API_URL;
 
 export interface Restaurant {
   id: number;
-  userId: number;
   name: string;
-  description: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  phone?: string;
-  website?: string;
-  imageUrl?: string;
-  category?: string;
-  priceLevel?: number;
-  isActive: boolean;
-  isVerified: boolean;
+  description?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  category?: string | null;
   createdAt: string;
   updatedAt: string;
-  user?: {
-    id: number;
-    profile?: {
-      displayName: string;
-      avatarUrl?: string;
-    };
-  };
 }
 
 export interface CreateRestaurantData {
   name: string;
-  description: string;
-  address: string;
-  userId: number;
+  description?: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
   category?: string;
-  phone?: string;
-  website?: string;
-  imageUrl?: string;
-  priceLevel?: number;
 }
 
 export interface RestaurantResponse {
@@ -70,14 +54,22 @@ class RestaurantService {
           "Content-Type": "application/json",
           ...options.headers,
         },
+        credentials: "include",
         ...options,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        return {
+          success: false,
+          error: data.error?.message || `HTTP error! status: ${response.status}`,
+        };
       }
 
-      return await response.json();
+      return {
+        success: true,
+        data: data.data,
+      };
     } catch (error) {
       console.error("API call failed:", error);
       return {
@@ -95,6 +87,7 @@ class RestaurantService {
       isActive?: boolean;
       limit?: number;
       offset?: number;
+      bbox?: string; // minLng,minLat,maxLng,maxLat
     } = {}
   ): Promise<RestaurantResponse> {
     const searchParams = new URLSearchParams();
@@ -104,6 +97,7 @@ class RestaurantService {
       searchParams.append("isActive", params.isActive.toString());
     if (params.limit) searchParams.append("limit", params.limit.toString());
     if (params.offset) searchParams.append("offset", params.offset.toString());
+    if (params.bbox) searchParams.append("bbox", params.bbox);
 
     const query = searchParams.toString();
     const endpoint = `/restaurants${query ? `?${query}` : ""}`;
@@ -148,10 +142,10 @@ class RestaurantService {
   restaurantToMapMarker(restaurant: Restaurant) {
     return {
       id: `restaurant-${restaurant.id}`,
-      longitude: restaurant.longitude,
-      latitude: restaurant.latitude,
+      longitude: restaurant.longitude || 0,
+      latitude: restaurant.latitude || 0,
       title: restaurant.name,
-      description: `${restaurant.description} • ${restaurant.address}`,
+      description: `${restaurant.description || ""}${restaurant.address ? ` • ${restaurant.address}` : ""}`,
       color: "#22c55e", // Consistent green color for all restaurants
       type: "restaurant" as const,
       data: restaurant,

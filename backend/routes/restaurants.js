@@ -75,6 +75,10 @@ const updateBodySchema = z
   })
   .refine((v) => Object.keys(v).length > 0, { message: "No fields to update" });
 
+// Legacy JS route file (archived). TS runtime uses `src/routes/restaurants.ts`.
+// Keep for reference only.
+const ENABLE_LEGACY_ROUTES = String(process.env.ENABLE_LEGACY_ROUTES || "").toLowerCase() === "true";
+
 // GET /api/restaurants - Lấy tất cả restaurants do user tạo
 router.get("/", async (req, res) => {
   try {
@@ -87,35 +91,32 @@ router.get("/", async (req, res) => {
       });
     }
 
-    const { userId, isActive, limit, offset } = parsed.data;
+    const { limit, offset } = parsed.data;
     const prisma = getPrisma();
 
-    const whereClause = {};
+    // Doc-compliant: Restaurants are treated as PLACE Contexts (read-only alias)
+    const whereClause = { type: "PLACE" };
 
-    // Default: only active restaurants for public listing
-    whereClause.isActive = isActive === undefined ? true : isActive;
+    const [contexts, total] = await Promise.all([
+      prisma.context.findMany({
+        where: whereClause,
+        orderBy: { updatedAt: "desc" },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.context.count({ where: whereClause }),
+    ]);
 
-    if (userId) whereClause.userId = userId;
-
-    const restaurants = await prisma.restaurant.findMany({
-      where: whereClause,
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            // Remove profile relationship for now to avoid errors
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: limit,
-      skip: offset,
-    });
-
-    const total = await prisma.restaurant.count({ where: whereClause });
+    const restaurants = contexts.map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      address: c.address,
+      latitude: c.latitude,
+      longitude: c.longitude,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    }));
 
     res.json({
       success: true,
@@ -141,6 +142,12 @@ router.get("/", async (req, res) => {
 
 // POST /api/restaurants - Tạo restaurant mới
 router.post("/", requireAuth, async (req, res) => {
+  if (!ENABLE_LEGACY_ROUTES) {
+    return res.status(403).json({
+      success: false,
+      message: "Disabled in MVP: create PLACE Contexts implicitly via POST /api/articles",
+    });
+  }
   try {
     const parsed = createBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -170,35 +177,14 @@ router.post("/", requireAuth, async (req, res) => {
         ? { latitude, longitude }
         : await geocodeAddress(address);
 
-    // Create restaurant in database
-    const restaurant = await prisma.restaurant.create({
+    const restaurant = await prisma.context.create({
       data: {
+        type: "PLACE",
         name: name.trim(),
         description: description.trim(),
         address: address.trim(),
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
-        userId: req.user.id,
-        category: category?.trim() || null,
-        phone: phone?.trim() || null,
-        website: website?.trim() || null,
-        imageUrl: imageUrl?.trim() || null,
-        priceLevel: priceLevel ?? null,
-        isActive: true,
-        isVerified: false,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            profile: {
-              select: {
-                displayName: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
       },
     });
 
@@ -248,23 +234,10 @@ router.get("/:id", async (req, res) => {
     }
 
     const prisma = getPrisma();
-    const restaurant = await prisma.restaurant.findFirst({
+    const restaurant = await prisma.context.findFirst({
       where: {
         id: parsedParams.data.id,
-        isActive: true,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            profile: {
-              select: {
-                displayName: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
+        type: "PLACE",
       },
     });
 
@@ -293,6 +266,12 @@ router.get("/:id", async (req, res) => {
 
 // PUT /api/restaurants/:id - Cập nhật restaurant
 router.put("/:id", requireAuth, async (req, res) => {
+  if (!ENABLE_LEGACY_ROUTES) {
+    return res.status(403).json({
+      success: false,
+      message: "Disabled in MVP: update PLACE Contexts via Article workflows",
+    });
+  }
   try {
     const parsedParams = idParamSchema.safeParse(req.params);
     if (!parsedParams.success) {
@@ -409,6 +388,12 @@ router.put("/:id", requireAuth, async (req, res) => {
 
 // DELETE /api/restaurants/:id - Xóa restaurant (soft delete)
 router.delete("/:id", requireAuth, async (req, res) => {
+  if (!ENABLE_LEGACY_ROUTES) {
+    return res.status(403).json({
+      success: false,
+      message: "Disabled in MVP: delete PLACE Contexts via Article workflows",
+    });
+  }
   try {
     const parsedParams = idParamSchema.safeParse(req.params);
     if (!parsedParams.success) {

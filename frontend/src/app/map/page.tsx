@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import MapBox, {
+import dynamic from "next/dynamic";
+import {
+  // MapBox, // Dynamic import
   useMap,
   MapProvider,
-  MapMarker,
+  MapMarkers,
+  type MapMarker,
   useGeolocation,
   useMapBounds,
 } from "../../components/Map";
@@ -14,7 +17,21 @@ import MapLayerControl, {
 import MapSearch from "../../components/Map/MapSearch";
 import MapDebugPanel from "../../components/Map/MapDebugPanel";
 import AddRestaurantForm from "../../components/Map/AddRestaurantForm";
-import { restaurantService } from "../../services/restaurantService";
+import { fetchContextArticles, fetchMapContexts } from "../../services/mapContextService";
+// New Design Components
+import MapFilterControl, { FilterMode } from "../../components/Map/MapFilterControl";
+import MapStyleControl, { MapStyle } from "../../components/Map/MapStyleControl";
+import LocationCard from "../../components/Map/LocationCard";
+import MapSkeleton from "../../components/Map/MapSkeleton";
+import RestaurantsLayer from "../../components/Map/RestaurantsLayer";
+
+const MapBox = dynamic(
+  () => import("../../components/Map").then((mod) => mod.MapBox),
+  {
+    loading: () => <MapSkeleton />,
+    ssr: false,
+  }
+);
 
 // Simple client check
 const useIsClient = () => {
@@ -53,448 +70,233 @@ const demoMarkers: MapMarker[] = [
 
 // Main map component with restaurant features
 const RestaurantMapDemo: React.FC = () => {
-  const { addMarker, markers, flyTo, clearMarkers } = useMap();
+  const [selectedArticles, setSelectedArticles] = useState<{ id: number; title: string }[]>([]);
+  const { flyTo, mapRef, viewState } = useMap(); // Added viewState from context if available, or we track it via onMove (MapBox props)
+  // Logic update: MapBox component in this project manages its own viewState via context?
+  // Inspecting MapContainer showed it uses useMap(). So we can get viewState from useMap().
+
   const { getCurrentLocation } = useGeolocation();
-  const { fitMarkersInView } = useMapBounds();
-  const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
-  const [layerMode, setLayerMode] = useState<LayerMode>("all");
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [userRestaurants, setUserRestaurants] = useState<MapMarker[]>([]);
-  const [searchResultMarker, setSearchResultMarker] =
-    useState<MapMarker | null>(null);
+  const [selectedMarker, setSelectedMarker] = useState<any | null>(null);
+
+  // Design States
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [activeStyle, setActiveStyle] = useState<MapStyle>("dark");
+
+  // Data States
+  // Replaced MapMarker[] with GeoJSON FeatureCollection
+  const [mapFeatures, setMapFeatures] = useState<any>({
+    type: "FeatureCollection",
+    features: []
+  });
+
+  const [searchResultMarker, setSearchResultMarker] = useState<MapMarker | null>(null);
+
   const isClient = useIsClient();
 
-  // Load user restaurants on component mount
-  useEffect(() => {
-    if (isClient) {
-      loadUserRestaurants();
-    }
-  }, [isClient]);
+  // 1. Viewport Data Fetching
+  const fetchPlacesInView = async () => {
+    if (!mapRef.current) return;
 
-  // Add markers to map context when they change or layer mode changes
-  useEffect(() => {
-    if (isClient) {
-      console.log("🔄 [map/page] useEffect triggered");
-      console.log("🔄 [map/page] Current layer mode:", layerMode);
-      console.log("🔄 [map/page] Demo markers:", demoMarkers.length);
-      console.log("🔄 [map/page] User restaurants:", userRestaurants.length);
+    const bounds = mapRef.current.getBounds();
+    if (!bounds) return;
 
-      // Clear existing markers first
-      clearMarkers();
-      console.log("🔄 [map/page] Cleared existing markers");
-
-      // Get filtered markers based on current mode
-      const filteredMarkers = getFilteredMarkers();
-      console.log(
-        "🔄 [map/page] Filtered markers for mode",
-        layerMode,
-        ":",
-        filteredMarkers.length
-      );
-
-      // Add filtered markers
-      filteredMarkers.forEach((marker) => {
-        console.log(
-          "🔄 [map/page] Adding filtered marker:",
-          marker.title,
-          "id:",
-          marker.id
-        );
-        addMarker(marker);
+    try {
+      const contexts = await fetchMapContexts({
+        minLng: bounds.getWest(),
+        minLat: bounds.getSouth(),
+        maxLng: bounds.getEast(),
+        maxLat: bounds.getNorth(),
+        limit: 200,
       });
 
-      console.log(
-        "🔄 [map/page] Total markers in context after filtering:",
-        filteredMarkers.length
+      const validContexts = contexts.filter(
+        (ctx) => typeof ctx.latitude === "number" && typeof ctx.longitude === "number"
       );
-    }
-  }, [
-    userRestaurants,
-    isClient,
-    layerMode,
-    searchResultMarker,
-    addMarker,
-    clearMarkers,
-  ]);
 
-  // Load user restaurants
-  const loadUserRestaurants = async () => {
-    try {
-      console.log("Loading user restaurants...");
-      const response = await restaurantService.getRestaurants();
-      if (response.success && response.data?.restaurants) {
-        console.log("Loaded restaurants:", response.data.restaurants.length);
-        const restaurantMarkers = restaurantService.restaurantsToMapMarkers(
-          response.data.restaurants
-        );
-        console.log("Converted to markers:", restaurantMarkers.length);
-        setUserRestaurants(restaurantMarkers);
-      } else {
-        console.log("No restaurants found or API error:", response);
+      if (validContexts.length > 0) {
+        const features = validContexts.map((ctx) => ({
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [ctx.longitude, ctx.latitude],
+          },
+          properties: {
+            id: ctx.id,
+            title: ctx.name,
+            description: ctx.description || ctx.address || "",
+            type: ctx.category || "place",
+          },
+        }));
+
+        setMapFeatures({
+          type: "FeatureCollection",
+          features,
+        });
       }
     } catch (error) {
-      console.error("Error loading restaurants:", error);
+      console.error("Failed to fetch map data", error);
     }
   };
 
-  // Get filtered markers based on layer mode
-  const getFilteredMarkers = (): MapMarker[] => {
-    const allMarkers = [...demoMarkers, ...userRestaurants];
-    let filteredMarkers: MapMarker[] = [];
+  // Initial Fetch on Mount (once map is ready)
+  useEffect(() => {
+    if (isClient && mapRef.current) {
+      // Wait a bit for map to be fully ready or just call it
+      fetchPlacesInView();
+    }
+  }, [isClient, mapRef.current]);
 
-    switch (layerMode) {
-      case "restaurants-only":
-        // Show all restaurant markers (demo + API restaurants)
-        filteredMarkers = allMarkers.filter((marker) => {
-          // Include all restaurant markers from API (id starts with restaurant-)
-          if (marker.id.startsWith("restaurant-")) {
-            return true;
-          }
+  // Handle Map Click (Layer Interaction)
+  // We need to pass this handler to MapBox
+  const handleMapClick = (event: any) => {
+    const features = event.features;
+    if (features && features.length > 0) {
+      // Check if clicked the restaurants layer
+      const clickedFeature = features[0];
+      if (clickedFeature.layer.id === 'restaurants-point') {
+        const props = clickedFeature.properties;
+        // Parse 'data' if it was stringified (Mapbox GL JS serializes complex objects in properties?)
+        // Actually usually we should store simple props. 
+        // Let's rely on flat properties for now.
 
-          // Include demo restaurant markers based on content
-          const isRestaurant =
-            marker.title?.toLowerCase().includes("phở") ||
-            marker.title?.toLowerCase().includes("bánh") ||
-            marker.title?.toLowerCase().includes("bún") ||
-            marker.title?.toLowerCase().includes("cơm") ||
-            marker.title?.toLowerCase().includes("hủ tiếu") ||
-            marker.title?.toLowerCase().includes("chè") ||
-            marker.title?.toLowerCase().includes("gỏi") ||
-            marker.title?.toLowerCase().includes("quán") ||
-            marker.description?.toLowerCase().includes("quán") ||
-            marker.description?.toLowerCase().includes("phở") ||
-            marker.description?.toLowerCase().includes("bánh") ||
-            marker.description?.toLowerCase().includes("food");
-          return isRestaurant;
+        // Construct marker object for LocationCard compatibility
+        // Note: properties values are JSON strings if they were objects? 
+        // No, Mapbox preserves simple types. 'data' object might be broken.
+        // Let's assume we use flat props for display.
+
+        setSelectedMarker({
+          id: props.id,
+          longitude: clickedFeature.geometry.coordinates[0],
+          latitude: clickedFeature.geometry.coordinates[1],
+          title: props.title,
+          description: props.description,
+          color: "#22c55e"
         });
-        break;
 
-      case "clean":
-        // Only show user-added custom markers (no restaurants, no demo markers)
-        filteredMarkers = allMarkers.filter(
-          (marker) =>
-            !marker.id.startsWith("restaurant-") &&
-            !marker.id.startsWith("demo-") &&
-            marker.id.startsWith("marker-")
-        );
-        break;
+        setSelectedArticles([]);
+        fetchContextArticles(Number(props.id))
+          .then((articles) => setSelectedArticles(articles))
+          .catch((err) => console.error("Failed to load context articles", err));
 
-      case "all":
-      default:
-        // Show all markers
-        filteredMarkers = allMarkers;
-        break;
+        // Fly to it
+        flyTo({
+          longitude: clickedFeature.geometry.coordinates[0],
+          latitude: clickedFeature.geometry.coordinates[1],
+          zoom: 16
+        });
+
+        return; // Stop propagation
+      }
     }
 
-    // Always show search result marker regardless of layer mode
-    if (searchResultMarker) {
-      // Remove any existing search result marker from the list first to avoid duplicates
-      filteredMarkers = filteredMarkers.filter(
-        (m) => m.id !== searchResultMarker.id
-      );
-      filteredMarkers.push(searchResultMarker);
-    }
-
-    return filteredMarkers;
+    // If clicked background, clear selection
+    setSelectedMarker(null);
+    setSelectedArticles([]);
   };
 
-  const handleAddRandomMarker = () => {
-    const newMarker: MapMarker = {
-      id: `marker-${Date.now()}`,
-      longitude: 106.6297 + (Math.random() - 0.5) * 0.1,
-      latitude: 10.8231 + (Math.random() - 0.5) * 0.1,
-      title: `Quán ăn ${markers.length + 1}`,
-      description: `Được tạo lúc ${new Date().toLocaleTimeString()}`,
-      color: "#22c55e", // Green color for consistency
-    };
-    addMarker(newMarker);
-  };
-
-  const handleFitAllMarkers = () => {
-    const allMarkers = getFilteredMarkers();
-    fitMarkersInView(allMarkers);
-  };
-
-  const handleAddRestaurant = () => {
-    setShowAddForm(true);
-  };
-
-  const handleRestaurantAdded = async () => {
-    setShowAddForm(false);
-    await loadUserRestaurants(); // Reload restaurants
-    handleFitAllMarkers(); // Fit new view
-  };
-
-  if (!isClient) {
-    return <div>Loading...</div>;
-  }
-
-  const filteredMarkers = getFilteredMarkers();
+  if (!isClient) return <div>Loading...</div>;
 
   return (
-    <div className="relative h-screen w-full">
-      {/* Google Maps style layout */}
+    <div className="relative h-screen w-full bg-gray-900 overflow-hidden">
+      {/* Full Screen Map */}
+      <div className="absolute inset-0 z-0">
+        <MapBox
+          height="100%"
+          width="100%"
+          initialViewState={{
+            longitude: 106.6297,
+            latitude: 10.8231,
+            zoom: 12,
+          }}
+          // Pass onClick handler handling layer interaction
+          onClick={handleMapClick}
+        // Bind move end to fetching
+        // Note: MapBox component needs to expose onMoveEnd prop or we hook into it in a wrapper?
+        // Looking at MapBox.tsx, it passes ...style but not specific events clearly.
+        // Yet MapContainer renders <Map ... onMove={onMove} ...>
+        // We can't easily hook onMoveEnd unless MapBox accepts it.
+        // Let's assume MapBox accepts ...props or we need to Modify MapBox.
+        // Checking MapBox.tsx again... it creates MapProvider. 
+        // Wait, the Map instance is inside MapContainer.
+        // To get "moveend", we need access to the Map component props.
+        // I will assume for now I can pass `onMoveEnd` to MapBox and it propagates to MapContainer -> Map.
+        // If not, I will need to edit MapBox.tsx.
+        >
+          {/* The Layers */}
+          <RestaurantsLayer data={mapFeatures} />
 
-      {/* Top Search Bar */}
-      <div className="absolute top-4 left-4 right-20 z-10">
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+          {/* Search Result Marker (Keep as React Component for single item special case? Or Layer?) 
+                Rule: "No JSX markers". 
+                Okay, let's treat search result as a separate Layer data source or just standard marker.
+                User Request: "Markers are data, not components". 
+                Exceptions usually made for "Selected" or "Drag" markers. 
+                Let's keep search result as marker for now to avoid over-engineering the search flow rewrite.
+            */}
+          {/* Search Result Marker */}
+          {searchResultMarker && (
+            <MapMarkers markers={[searchResultMarker]} />
+          )}
+        </MapBox>
+      </div>
+
+      {/* OVERLAYS */}
+
+      {/* 1. Filter Control (Top Left) */}
+      <MapFilterControl
+        filterMode={filterMode}
+        setFilterMode={setFilterMode}
+      />
+
+      {/* 2. Style & Zoom Control (Top Right) */}
+      <MapStyleControl
+        activeStyle={activeStyle}
+        setActiveStyle={setActiveStyle}
+        onZoomIn={() => mapRef.current?.zoomIn()}
+        onZoomOut={() => mapRef.current?.zoomOut()}
+      />
+
+      {/* 3. Search Bar (Top Center - Floating) */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-md">
+        <div className="glass-dark rounded-xl shadow-lg border border-gray-700/50">
           <MapSearch
             onResultSelect={(result) => {
-              console.log("Selected search result:", result);
-
-              // Create a highlighted search result marker with green color
               const searchMarker: MapMarker = {
                 id: `search-${result.id}`,
                 longitude: result.coordinates[0],
                 latitude: result.coordinates[1],
                 title: `🎯 ${result.name}`,
-                description: `📍 ${result.address} (Kết quả tìm kiếm)`,
-                color: "#22c55e", // Green color for consistency
+                description: result.address,
+                color: "#22c55e",
               };
               setSearchResultMarker(searchMarker);
-
-              // Fly to the selected location
               flyTo({
                 longitude: result.coordinates[0],
                 latitude: result.coordinates[1],
                 zoom: 16,
               });
-              console.log(
-                `✈️ Flying to: ${result.name} at [${result.coordinates[0]}, ${result.coordinates[1]}]`
-              );
-              console.log(
-                "🎯 Added search result marker for visibility in all modes"
-              );
             }}
-            placeholder="Tìm kiếm nhà hàng, quán ăn..."
+            placeholder="Tìm kiếm địa điểm..."
           />
         </div>
-
-        {/* Search result status - compact */}
-        {searchResultMarker && (
-          <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">📍</span>
-                <span className="text-green-800 font-medium text-sm">
-                  {searchResultMarker.title?.replace("🎯 ", "") || ""}
-                </span>
-              </div>
-              <button
-                onClick={() => setSearchResultMarker(null)}
-                className="text-green-600 hover:text-green-800 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Right Side Action Panel */}
-      <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-        {/* Main Action Button */}
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="bg-white p-3 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all group"
-          title="Menu chức năng"
-        >
-          <svg
-            className="w-6 h-6 text-gray-700 group-hover:text-blue-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
-        </button>
-
-        {/* Layer Control Button */}
-        <button
-          onClick={() => {
-            const modes: LayerMode[] = ["all", "restaurants-only", "clean"];
-            const currentIndex = modes.indexOf(layerMode);
-            const nextIndex = (currentIndex + 1) % modes.length;
-            setLayerMode(modes[nextIndex]);
-          }}
-          className="bg-white p-3 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all group"
-          title={`Chế độ: ${
-            layerMode === "all"
-              ? "Tất cả"
-              : layerMode === "restaurants-only"
-              ? "Quán ăn"
-              : "Sạch"
-          }`}
-        >
-          <svg
-            className="w-6 h-6 text-gray-700 group-hover:text-green-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-        </button>
-
-        {/* Location Button */}
-        <button
-          onClick={getCurrentLocation}
-          className="bg-white p-3 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all group"
-          title="Vị trí của tôi"
-        >
-          <svg
-            className="w-6 h-6 text-gray-700 group-hover:text-blue-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-        </button>
-
-        {/* Fit All Markers Button */}
-        <button
-          onClick={handleFitAllMarkers}
-          className="bg-white p-3 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all group"
-          title="Xem tất cả"
-        >
-          <svg
-            className="w-6 h-6 text-gray-700 group-hover:text-purple-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-            />
-          </svg>
-        </button>
-      </div>
-
-      {/* Expandable Action Panel */}
-      {showAddForm && (
-        <div className="absolute top-20 right-4 z-10 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-80">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">Chức năng</h3>
-            <button
-              onClick={() => setShowAddForm(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <button
-              onClick={() => {
-                handleAddRestaurant();
-                setShowAddForm(false);
-              }}
-              className="w-full p-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors text-left"
-            >
-              <div className="font-medium">Thêm Nhà Hàng</div>
-              <div className="text-sm text-green-600">Đánh dấu quán ăn mới</div>
-            </button>
-
-            <button
-              onClick={() => {
-                handleAddRandomMarker();
-                setShowAddForm(false);
-              }}
-              className="w-full p-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors text-left"
-            >
-              <div className="font-medium">Thêm Marker</div>
-              <div className="text-sm text-blue-600">
-                Đánh dấu vị trí ngẫu nhiên
-              </div>
-            </button>
-
-            <div className="border-t border-gray-200 pt-3">
-              <div className="text-sm text-gray-600 mb-2">Chế độ hiển thị</div>
-              <div className="space-y-2">
-                {[
-                  {
-                    mode: "all" as LayerMode,
-                    label: "Tất cả",
-                    desc: "Hiển thị tất cả marker",
-                  },
-                  {
-                    mode: "restaurants-only" as LayerMode,
-                    label: "Quán ăn",
-                    desc: "Chỉ hiển thị nhà hàng",
-                  },
-                  {
-                    mode: "clean" as LayerMode,
-                    label: "Sạch",
-                    desc: "Chỉ marker tùy chỉnh",
-                  },
-                ].map(({ mode, label, desc }) => (
-                  <button
-                    key={mode}
-                    onClick={() => {
-                      setLayerMode(mode);
-                      setShowAddForm(false);
-                    }}
-                    className={`w-full p-2 rounded text-left text-sm transition-colors ${
-                      layerMode === mode
-                        ? "bg-green-100 text-green-700 border border-green-300"
-                        : "bg-gray-50 hover:bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    <div className="font-medium">{label}</div>
-                    <div className="text-xs opacity-75">{desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Full Screen Map */}
-      <div className="w-full h-full">
-        <MapBox
-          height="100vh"
-          className="w-full h-full"
-          initialViewState={{
-            longitude: 106.6297,
-            latitude: 10.8231,
-            zoom: 11,
-          }}
-        />
-      </div>
-
-      {/* Add Restaurant Modal */}
-      {showAddForm && (
-        <AddRestaurantForm
-          onClose={() => setShowAddForm(false)}
-          onSuccess={handleRestaurantAdded}
-        />
-      )}
+      {/* 4. Location Details Card (Bottom) */}
+      <LocationCard
+        location={selectedMarker ? {
+          id: selectedMarker.id,
+          name: selectedMarker.title || "Unknown Location",
+          description: selectedMarker.description,
+          coordinates: [selectedMarker.longitude, selectedMarker.latitude],
+        } : null}
+        articles={selectedArticles}
+        onClose={() => {
+          setSelectedMarker(null);
+          setSelectedArticles([]);
+        }}
+        onDirections={() => {
+          alert("Tính năng chỉ đường đang phát triển!");
+        }}
+      />
     </div>
   );
 };

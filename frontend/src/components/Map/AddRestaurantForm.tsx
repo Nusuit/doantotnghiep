@@ -6,9 +6,6 @@ import {
   MapPin,
   FileText,
   User,
-  Phone,
-  Globe,
-  DollarSign,
   Tag,
   X,
   Check,
@@ -35,10 +32,8 @@ const AddRestaurantForm: React.FC<AddRestaurantFormProps> = ({
     description: "",
     address: "",
     category: "",
-    phone: "",
-    website: "",
-    imageUrl: "",
-    priceLevel: 1,
+    latitude: "",
+    longitude: "",
   });
 
   const handleInputChange = (
@@ -49,7 +44,7 @@ const AddRestaurantForm: React.FC<AddRestaurantFormProps> = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "priceLevel" ? parseInt(value) || 1 : value,
+      [name]: value,
     }));
 
     // Clear error when user starts typing
@@ -61,10 +56,11 @@ const AddRestaurantForm: React.FC<AddRestaurantFormProps> = ({
 
     if (
       !formData.name.trim() ||
-      !formData.description.trim() ||
-      !formData.address.trim()
+      !formData.address.trim() ||
+      !formData.latitude ||
+      !formData.longitude
     ) {
-      setError("Vui lòng điền đầy đủ thông tin bắt buộc");
+      setError("Vui lòng điền đầy đủ thông tin bắt buộc (tên, địa chỉ, tọa độ)");
       return;
     }
 
@@ -73,16 +69,12 @@ const AddRestaurantForm: React.FC<AddRestaurantFormProps> = ({
 
     try {
       const createData: CreateRestaurantData = {
-        ...formData,
         name: formData.name.trim(),
-        description: formData.description.trim(),
+        description: formData.description.trim() || undefined,
         address: formData.address.trim(),
-        userId: 1, // Mock user ID - trong thực tế sẽ lấy từ authentication
+        latitude: Number(formData.latitude),
+        longitude: Number(formData.longitude),
         category: formData.category.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        website: formData.website.trim() || undefined,
-        imageUrl: formData.imageUrl.trim() || undefined,
-        priceLevel: formData.priceLevel,
       };
 
       const response = await restaurantService.createRestaurant(createData);
@@ -101,19 +93,6 @@ const AddRestaurantForm: React.FC<AddRestaurantFormProps> = ({
       setError("Có lỗi xảy ra khi tạo quán ăn");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getPriceLevelLabel = (level: number) => {
-    switch (level) {
-      case 1:
-        return "Bình dân (< 100k)";
-      case 2:
-        return "Trung bình (100k - 300k)";
-      case 3:
-        return "Cao cấp (> 300k)";
-      default:
-        return "Bình dân";
     }
   };
 
@@ -206,82 +185,55 @@ const AddRestaurantForm: React.FC<AddRestaurantFormProps> = ({
             </p>
           </div>
 
-          {/* Category & Price Level */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Tag className="w-4 h-4" />
-                Loại hình
-              </label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all duration-200"
-              >
-                <option value="">Chọn loại</option>
-                <option value="Việt Nam">Việt Nam</option>
-                <option value="Cà phê">Cà phê</option>
-                <option value="Ăn vặt">Ăn vặt</option>
-                <option value="Tráng miệng">Tráng miệng</option>
-                <option value="Đồ uống">Đồ uống</option>
-                <option value="Lẩu nướng">Lẩu nướng</option>
-                <option value="Hải sản">Hải sản</option>
-                <option value="Quốc tế">Quốc tế</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
-                Mức giá
-              </label>
-              <select
-                name="priceLevel"
-                value={formData.priceLevel}
-                onChange={handleInputChange}
-                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all duration-200"
-              >
-                <option value={1}>💰 Bình dân</option>
-                <option value={2}>💵 Trung bình</option>
-                <option value={3}>💎 Cao cấp</option>
-              </select>
-            </div>
+          {/* Category */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <Tag className="w-4 h-4" />
+              Loại địa điểm
+            </label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleInputChange}
+              className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all duration-200"
+            >
+              <option value="">Chọn loại</option>
+              <option value="restaurant">Nhà hàng</option>
+              <option value="cafe">Cà phê</option>
+              <option value="street_food">Ăn vặt</option>
+              <option value="park">Công viên</option>
+              <option value="landmark">Điểm tham quan</option>
+            </select>
           </div>
 
-          {/* Optional Fields */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-gray-700">
-              Thông tin thêm (tùy chọn)
-            </h3>
-
+          {/* Coordinates */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                Số điện thoại
+              <label className="text-sm font-medium text-gray-700">
+                Latitude *
               </label>
               <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
+                type="number"
+                name="latitude"
+                value={formData.latitude}
                 onChange={handleInputChange}
-                placeholder="0123 456 789"
+                placeholder="10.8231"
                 className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all duration-200"
+                required
               />
             </div>
-
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                <Globe className="w-4 h-4" />
-                Website
+              <label className="text-sm font-medium text-gray-700">
+                Longitude *
               </label>
               <input
-                type="url"
-                name="website"
-                value={formData.website}
+                type="number"
+                name="longitude"
+                value={formData.longitude}
                 onChange={handleInputChange}
-                placeholder="https://example.com"
+                placeholder="106.6297"
                 className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all duration-200"
+                required
               />
             </div>
           </div>
