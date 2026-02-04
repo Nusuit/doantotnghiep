@@ -88,3 +88,4 @@ Thumbs.db
 .yarn-integrity
 .dockerignore
 *.local
+.agent

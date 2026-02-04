@@ -24,6 +24,7 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({ content, onChange, placehol
                 class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[100px] px-3 py-2',
             },
         },
+        immediatelyRender: false,
     });
 
     // Reset editor content when prop changes to empty (e.g. after submit)

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+/* Rebuild trigger */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -80,25 +81,19 @@
   --brand-indigo-200: #c7d2fe;
 
   /* Gradient presets - Using custom brand colors (pastel) */
-  --gradient-hero: linear-gradient(
-    135deg,
-    #c0d8f4 0%,
-    #a9cdeb 25%,
-    #cdb8ed 60%,
-    #dcbef2 100%
-  );
-  --gradient-primary: linear-gradient(
-    135deg,
-    var(--brand-sky-500),
-    var(--brand-blue-500),
-    var(--brand-violet-500)
-  );
-  --gradient-primary-soft: linear-gradient(
-    135deg,
-    rgba(14, 165, 233, 0.3),
-    rgba(59, 130, 246, 0.3),
-    rgba(139, 92, 246, 0.3)
-  );
+  --gradient-hero: linear-gradient(135deg,
+      #c0d8f4 0%,
+      #a9cdeb 25%,
+      #cdb8ed 60%,
+      #dcbef2 100%);
+  --gradient-primary: linear-gradient(135deg,
+      var(--brand-sky-500),
+      var(--brand-blue-500),
+      var(--brand-violet-500));
+  --gradient-primary-soft: linear-gradient(135deg,
+      rgba(14, 165, 233, 0.3),
+      rgba(59, 130, 246, 0.3),
+      rgba(139, 92, 246, 0.3));
 }
 
 .dark {
@@ -145,8 +140,8 @@
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: #2563EB;
+  --color-primary-foreground: #ffffff;
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -206,7 +201,69 @@
   --color-brand-violet-600: var(--brand-violet-600);
   --color-brand-violet-700: var(--brand-violet-700);
 
+  --color-primary-dark: #4338CA;
+  --color-primary-light: #818CF8;
+  --color-dark-bg: #0B1120;
+  --color-dark-surface: #1E293B;
+  --color-dark-border: #334155;
   --color-brand-indigo-200: var(--brand-indigo-200);
+
+  /* Fonts */
+  --font-display: "Sora", sans-serif;
+  --font-sans: "Inter", sans-serif;
+
+  /* Animations */
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-fade-in-up: fade-in-up 0.8s ease-out forwards;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-lg;
+  }
+
+  .glass-dark {
+    @apply bg-gray-900/80 backdrop-blur-md border border-gray-700/50 shadow-lg;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Leaflet Map Fixes */
+  .leaflet-container {
+    z-index: 0;
+  }
 }
 
 @layer base {
@@ -295,20 +352,24 @@ html {
 
 /* Gradient animations */
 @keyframes gradient {
+
   0%,
   100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
 }
 
 @keyframes shimmer {
+
   0%,
   100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
