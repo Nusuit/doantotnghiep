@@ -4,18 +4,25 @@ services:
   backend:
     build: .
     ports:
-      - "4000:4000"
+      - "1002:4000"
     env_file:
       - .env
     depends_on:
       - db
     # Lệnh này giúp backend chờ DB khởi động xong mới chạy (tránh crash)
     restart: always 
+    command: npm run dev
     environment:
       - PORT=4000
       # QUAN TRỌNG: Ghi đè biến DATABASE_URL để trỏ đúng vào service 'db'
       # Trong Docker, host không phải là localhost mà là tên service (db)
       - DATABASE_URL=postgresql://postgres:123456@db:5432/knowledge_sharing?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
 
   db:
     image: postgres:16-alpine
@@ -30,5 +37,30 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:alpine
+    container_name: knowledge_redis_container
+    ports:
+      - "6379:6379"
+    restart: always
+    volumes:
+      - redis_data:/data
+
+  worker:
+    build: .
+    container_name: knowledge_worker_container
+    command: npm run worker
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://postgres:123456@db:5432/knowledge_sharing?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
 volumes:
   postgres_data:
+  redis_data:

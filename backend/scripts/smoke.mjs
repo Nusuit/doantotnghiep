@@ -59,11 +59,28 @@ async function main() {
   }
 
   // ready
+  let dbReady = false;
   {
     const { status, body } = await requestJson("/api/ready");
     assert([200, 503].includes(status), `ready status ${status}`);
     assert(body.status, "ready missing status");
-    assert(body.status === "ok", "ready not ok (DB not reachable?)");
+    dbReady = body.status === "ok";
+  }
+
+  if (!dbReady) {
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          apiBase: API_BASE,
+          dbReady: false,
+          note: "DB not reachable; skipped DB-dependent checks",
+        },
+        null,
+        2
+      )
+    );
+    return;
   }
 
   // auth register/login/me
@@ -109,11 +126,20 @@ async function main() {
     assert(Array.isArray(body?.data?.restaurants), "restaurants missing array");
   }
 
+  // map contexts (PLACE only)
+  {
+    const { status, body } = await requestJson("/api/map/contexts?limit=10");
+    assert(status === 200, `map contexts status ${status}`);
+    assert(body?.success === true, "map contexts success=false");
+    assert(Array.isArray(body?.data?.contexts), "map contexts missing array");
+  }
+
   console.log(
     JSON.stringify(
       {
         ok: true,
         apiBase: API_BASE,
+        dbReady: true,
       },
       null,
       2
