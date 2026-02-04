@@ -21,6 +21,8 @@ import {
   MapMarker,
   useGeolocation,
   useMapBounds,
+  MapContainer,
+  MapControls,
 } from "@/components/Map";
 import MapLayerControl, { LayerMode } from "@/components/Map/MapLayerControl";
 import MapSearch from "@/components/Map/MapSearch";
@@ -195,52 +197,57 @@ const ClientHomepage: React.FC = () => {
             </div>
 
             {/* Map Section */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Bản đồ nhà hàng
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <MapSearch />
-                    <MapLayerControl
-                      currentMode="all"
-                      onModeChange={() => {}}
-                    />
+            <MapProvider
+              initialViewState={{
+                longitude: 106.6297,
+                latitude: 10.8231,
+                zoom: 13,
+              }}
+            >
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Bản đồ nhà hàng
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <MapSearch />
+                      <MapLayerControl
+                        currentMode="all"
+                        onModeChange={() => { }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="h-[600px] relative">
-                <MapBox
-                  initialViewState={{
-                    longitude: 106.6297,
-                    latitude: 10.8231,
-                    zoom: 13,
-                  }}
-                  showControls={true}
-                  showMapControls={true}
-                  height="100%"
-                  width="100%"
-                >
-                  {demoMarkers.map((marker) => (
-                    <div key={marker.id} className="marker-popup">
-                      <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 max-w-xs">
-                        <h4 className="font-semibold text-gray-900 mb-1">
-                          {marker.title}
-                        </h4>
-                        <p className="text-sm text-gray-600 mb-2">
-                          {marker.description}
-                        </p>
-                        <button className="text-xs bg-teal-600 text-white px-3 py-1 rounded-md hover:bg-teal-700">
-                          Xem chi tiết
-                        </button>
+                <div className="h-[600px] relative">
+                  <MapContainer
+                    height="100%"
+                    width="100%"
+                    className="w-full h-full"
+                    showControls={true}
+                  >
+                    {demoMarkers.map((marker) => (
+                      <div key={marker.id} className="marker-popup">
+                        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 max-w-xs">
+                          <h4 className="font-semibold text-gray-900 mb-1">
+                            {marker.title}
+                          </h4>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {marker.description}
+                          </p>
+                          <button className="text-xs bg-teal-600 text-white px-3 py-1 rounded-md hover:bg-teal-700">
+                            Xem chi tiết
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </MapBox>
+                    ))}
+                  </MapContainer>
+                  {/* Re-add MapControls if needed, they are usually inside MapBox but we deconstructed it */}
+                  {/* MapContainer handles controls via showControls prop usually, but checks MapBox impl */}
+                </div>
               </div>
-            </div>
+            </MapProvider>
 
             {/* Quick Actions */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
