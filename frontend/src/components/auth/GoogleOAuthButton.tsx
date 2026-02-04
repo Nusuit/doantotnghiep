@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { API_BASE_URL } from "@/lib/config";
 
 interface GoogleOAuthButtonProps {
   mode?: "login" | "register";
@@ -20,8 +21,7 @@ const GoogleOAuthButton: React.FC<GoogleOAuthButtonProps> = ({
       setIsLoading(true);
 
       // Get Google OAuth URL from backend
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      const response = await fetch(`${apiUrl}/api/auth/google`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -34,12 +34,12 @@ const GoogleOAuthButton: React.FC<GoogleOAuthButtonProps> = ({
 
       const data = await response.json();
 
-      if (!data.success || !data.authUrl) {
+      if (!data.success || !data.data?.authUrl) {
         throw new Error("Không thể tạo Google OAuth URL");
       }
 
       // Redirect to Google OAuth
-      window.location.href = data.authUrl;
+      window.location.href = data.data.authUrl;
     } catch (error) {
       console.error("Google OAuth Error:", error);
       setIsLoading(false);

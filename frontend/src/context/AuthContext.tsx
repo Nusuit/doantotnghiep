@@ -7,22 +7,22 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+import { API_BASE_URL } from "@/lib/config";
 
-// Types
-export interface User {
+// Types - Session User Only
+export interface SessionUser {
   id: number;
   email: string;
-  name: string;
   role: "admin" | "client";
   isEmailVerified: boolean;
   accountStatus: string;
-  createdAt: string;
-  updatedAt: string;
+  status?: 'authenticated' | 'partial';
+  name?: string;
+  avatar?: string;
 }
 
 export interface AuthState {
-  user: User | null;
-  token: string | null;
+  user: SessionUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -60,42 +60,25 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
-    token: null,
     isAuthenticated: false,
     isLoading: true,
   });
 
   // API Base URL
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const API_BASE = API_BASE_URL;
 
-  // Initialize auth state from localStorage
+  const getCsrfToken = () =>
+    document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("csrf_token="))
+      ?.split("=")[1];
+
+  // Check auth on mount
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const storedToken = localStorage.getItem("authToken");
-        const storedUser = localStorage.getItem("authUser");
-
-        if (storedToken && storedUser) {
-          const user = JSON.parse(storedUser);
-          setAuthState({
-            user,
-            token: storedToken,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } else {
-          setAuthState((prev) => ({ ...prev, isLoading: false }));
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        // Clear corrupted data
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("authUser");
-        setAuthState((prev) => ({ ...prev, isLoading: false }));
-      }
+    const initAuth = async () => {
+      await refreshAuth();
     };
-
-    initializeAuth();
+    initAuth();
   }, []);
 
   // Login function
@@ -110,6 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           email: credentials.username, // Backend expects email field
           password: credentials.password,
@@ -118,25 +102,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         setAuthState((prev) => ({ ...prev, isLoading: false }));
+
+        // Handle Unverified Account
+        if (data?.error?.details?.requireVerification) {
+          return {
+            success: false,
+            error: "ERR_VERIFY_REQUIRED", // Special code for UI to handle
+          };
+        }
+
         return {
           success: false,
-          error: data.message || "Đăng nhập thất bại",
+          error: data?.error?.message || "Đăng nhập thất bại",
         };
       }
 
-      // Extract user and token from response
-      const { user, token } = data;
-
-      // Store in localStorage
-      localStorage.setItem("authToken", token);
-      localStorage.setItem("authUser", JSON.stringify(user));
+      // Extract session user (minimal data)
+      const { user } = data.data;
 
       // Update state
       setAuthState({
         user,
-        token,
         isAuthenticated: true,
         isLoading: false,
       });
@@ -164,33 +152,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(credentials),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         setAuthState((prev) => ({ ...prev, isLoading: false }));
         return {
           success: false,
-          error: data.message || "Đăng ký thất bại",
+          error: data?.error?.message || "Đăng ký thất bại",
         };
       }
 
-      // Auto-login after successful registration
-      if (data.user && data.token) {
-        localStorage.setItem("authToken", data.token);
-        localStorage.setItem("authUser", JSON.stringify(data.user));
-
-        setAuthState({
-          user: data.user,
-          token: data.token,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } else {
-        setAuthState((prev) => ({ ...prev, isLoading: false }));
-      }
+      setAuthState((prev) => ({ ...prev, isLoading: false }));
 
       return { success: true };
     } catch (error) {
@@ -204,15 +180,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Logout function
-  const logout = () => {
-    // Clear localStorage
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("authUser");
+  const logout = async () => {
+    try {
+      const csrf = getCsrfToken();
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrf ? { "x-csrf-token": csrf } : {}),
+        },
+        credentials: "include",
+      });
+    } catch (error) {
+      // ignore logout failures
+    }
 
     // Reset state
     setAuthState({
       user: null,
-      token: null,
       isAuthenticated: false,
       isLoading: false,
     });
@@ -221,18 +206,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Refresh auth state (validate token)
   const refreshAuth = async (): Promise<void> => {
     try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        logout();
-        return;
-      }
-
       const response = await fetch(`${API_BASE}/api/auth/me`, {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -240,17 +219,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      const user = await response.json();
-      localStorage.setItem("authUser", JSON.stringify(user));
+      const payload = await response.json();
+      if (!payload.success) {
+        logout();
+        return;
+      }
+
+      const user = payload.data;
+
+      // Handle Partial Auth 
+      if (user.status === 'partial') {
+        console.warn("User authenticated in partial mode -> Redirecting to Onboarding");
+        if (window.location.pathname !== '/app/onboarding') {
+          window.location.href = '/app/onboarding';
+          return;
+        }
+      }
+      else if (user.isEmailVerified === false) {
+        const email = user.email;
+        logout();
+        if (email) {
+          window.location.href = `/auth/verify-otp?email=${encodeURIComponent(email)}`;
+        } else {
+          window.location.href = '/auth';
+        }
+        return;
+      }
 
       setAuthState((prev) => ({
         ...prev,
         user,
         isAuthenticated: true,
+        isLoading: false, // Ensure loading is false
       }));
     } catch (error) {
       console.error("Auth refresh error:", error);
-      logout();
+      // Do NOT call logout() here blindly, just set loading false
+      setAuthState(prev => ({ ...prev, isLoading: false, isAuthenticated: false, user: null }));
     }
   };
 
