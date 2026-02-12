@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 
 // --- MOCK DATA ---
 const CURRENT_USER = {
@@ -763,7 +764,16 @@ export default function WalletPage() {
       {/* HEADER - Full Width */}
       <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-gray-200 dark:border-white/10 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/app/profile"
+              aria-label="Back to Profile"
+              title="Back to Profile"
+              className="p-1.5 -ml-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 transition-colors"
+            >
+              <span className="material-symbols-outlined text-lg">arrow_back</span>
+            </Link>
+
             <div className="relative">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 border-2 border-white/10 flex items-center justify-center text-2xl font-bold text-white shadow-xl">
                 JD
