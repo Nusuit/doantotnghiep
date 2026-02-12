@@ -2,12 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { BrainScene } from '@/components/3d/BrainScene';
+import { EarthScene } from '@/components/3d/EarthScene';
 import { Reveal } from '@/components/ui/reveal';
 import { TiltCard } from '@/components/ui/tilt-card';
 import { LiveTicker } from '@/components/ui/live-ticker';
 import { StepIcon3D } from '@/components/ui/step-icon-3d';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { TopicVisual, EntityVisual, PlaceVisual } from '@/components/landing/Visuals';
 
 // --- DATA ---
@@ -148,7 +147,6 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-bg text-gray-900 dark:text-white flex flex-col overflow-x-hidden font-sans transition-colors duration-300">
-      <ThemeToggle />
 
       {/* 1. UPGRADED STICKY HEADER */}
       <nav className="fixed top-0 w-full z-50 px-6 py-4 backdrop-blur-xl bg-white/70 dark:bg-dark-bg/80 border-b border-gray-200 dark:border-gray-800 transition-all duration-300">
@@ -230,12 +228,12 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Right: 3D Brain Scene */}
+        {/* Right: 3D Earth Globe */}
         <div className="relative h-[500px] lg:h-[700px] w-full flex items-center justify-center order-first lg:order-last">
           {/* Background Glow */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-purple-500/20 rounded-full blur-[100px] -z-10 transform scale-75 animate-float"></div>
+          <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 to-cyan-500/20 rounded-full blur-[100px] -z-10 transform scale-75 animate-float"></div>
           <div className="w-full h-full">
-            <BrainScene />
+            <EarthScene />
           </div>
         </div>
       </div>
@@ -554,7 +552,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
             <div className="max-w-2xl">
-              <span className="text-purple-500 font-bold tracking-wider uppercase text-sm mb-2 block flex items-center gap-2">
+              <span className="text-purple-500 font-bold tracking-wider uppercase text-sm mb-2 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-purple-500"></span> Decentralized Governance
               </span>
               <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white mb-4">You Shape the Platform</h2>

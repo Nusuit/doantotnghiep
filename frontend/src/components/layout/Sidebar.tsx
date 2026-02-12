@@ -5,17 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "next-themes";
+import { useQuickNote } from "@/context/QuickNoteContext";
 
 export const Sidebar = () => {
     const pathname = usePathname();
     const { user, logout } = useAuth();
     const { theme, setTheme } = useTheme();
+    const { isQuickNoteVisible, toggleQuickNote } = useQuickNote();
     const [showMenu, setShowMenu] = useState(false);
     const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
         'governance': true
     });
-    // Local state for Quick Note (visual only for now as context is missing)
-    const [isQuickNoteVisible, setIsQuickNoteVisible] = useState(false);
 
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -24,10 +24,6 @@ export const Sidebar = () => {
 
     const toggleSubMenu = (key: string) => {
         setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
-    };
-
-    const toggleQuickNote = () => {
-        setIsQuickNoteVisible(!isQuickNoteVisible);
     };
 
     // Use name/avatar from AuthContext (flattened)
@@ -78,7 +74,7 @@ export const Sidebar = () => {
         { name: "Privacy & Security", icon: "lock", path: "/app/settings/privacy" },
     ];
 
-    if (!user) return null; // Or skeleton
+    if (!user) return null; // Require authentication
 
     const currentNavItems = isSettingsPage ? settingsNavItems : navItems;
 
@@ -212,17 +208,43 @@ export const Sidebar = () => {
                     {showMenu && (
                         <div className="absolute bottom-full left-0 w-full mb-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl overflow-hidden animate-fade-in-up origin-bottom z-50">
                             <div className="p-2 space-y-1">
-                                {/* Theme Toggle (Quick) */}
+                                {/* Theme Toggle with Animated Switch */}
                                 <div
                                     onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                                     className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
                                 >
                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">
-                                        {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+                                        {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
                                     </span>
-                                    <span className="material-symbols-outlined text-gray-500">
-                                        {theme === 'dark' ? 'light_mode' : 'dark_mode'}
-                                    </span>
+                                    
+                                    {/* Animated Switch with Decorations */}
+                                    <div className={`relative w-12 h-6 rounded-full transition-colors duration-500 ease-in-out flex items-center ${theme === 'dark' ? 'bg-[#1A1D24] border border-gray-600' : 'bg-cyan-200 border border-cyan-300'}`}>
+                                        {/* Decor: Clouds (Light Mode) */}
+                                        {theme !== 'dark' && (
+                                            <>
+                                                <div className="absolute right-3 top-1.5 w-2 h-1 bg-white rounded-full opacity-80"></div>
+                                                <div className="absolute right-1.5 bottom-1.5 w-3 h-1.5 bg-white rounded-full opacity-60"></div>
+                                            </>
+                                        )}
+                                        {/* Decor: Stars (Dark Mode) */}
+                                        {theme === 'dark' && (
+                                            <>
+                                                <div className="absolute left-2 top-1.5 w-0.5 h-0.5 bg-white rounded-full opacity-80"></div>
+                                                <div className="absolute left-3.5 bottom-2 w-0.5 h-0.5 bg-white rounded-full opacity-60"></div>
+                                                <div className="absolute left-1.5 bottom-1.5 w-0.5 h-0.5 bg-white rounded-full opacity-40"></div>
+                                            </>
+                                        )}
+
+                                        {/* The Knob (Sun/Moon) */}
+                                        <div className={`absolute w-5 h-5 rounded-full shadow-sm transform transition-transform duration-500 flex items-center justify-center ${
+                                            theme === 'dark' 
+                                            ? 'translate-x-[26px] bg-slate-200' 
+                                            : 'translate-x-[2px] bg-yellow-400'
+                                        }`}>
+                                            {/* Optional: Moon crater decoration */}
+                                            {theme === 'dark' && <div className="w-1 h-1 bg-slate-400 rounded-full mr-1 mb-1 opacity-50"></div>}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div
@@ -230,7 +252,7 @@ export const Sidebar = () => {
                                     className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
                                 >
                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white flex items-center gap-2">Quick Note</span>
-                                    <div className={`relative w-10 h-5 rounded-full transition-colors duration-300 flex items-center ${isQuickNoteVisible ? 'bg-[#2970FF]' : 'bg-gray-300 dark:bg-gray-700'}`}>
+                                    <div className={`relative w-10 h-5 rounded-full transition-colors duration-300 flex items-center ${isQuickNoteVisible ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-700'}`}>
                                         <div className={`absolute w-3.5 h-3.5 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${isQuickNoteVisible ? 'translate-x-[22px]' : 'translate-x-[4px]'}`}></div>
                                     </div>
                                 </div>

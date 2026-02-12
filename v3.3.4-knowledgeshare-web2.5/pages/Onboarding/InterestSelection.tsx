@@ -1,8 +1,6 @@
-"use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // Updated Data with Real Images
 const INTERESTS = [
@@ -24,8 +22,8 @@ const INTERESTS = [
     { id: 'places', label: 'Places', image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=400&q=80' },
 ];
 
-export default function OnboardingPage() {
-    const router = useRouter();
+export const InterestSelection = () => {
+    const navigate = useNavigate();
     const [selected, setSelected] = useState<string[]>([]);
     const MIN_SELECTION = 3;
 
@@ -39,9 +37,7 @@ export default function OnboardingPage() {
 
     const handleContinue = () => {
         if (selected.length >= MIN_SELECTION) {
-            toast.success("Preferences saved! Welcome to KnowledgeShare 🎉");
-            // TODO: Save preferences to backend when API is ready
-            router.push("/app/feed");
+            navigate('/app/feed');
         }
     };
 
@@ -51,13 +47,13 @@ export default function OnboardingPage() {
             {/* Ambient Background Effects */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-0">
                 <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-blue-900/10 rounded-full blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-cyan-900/10 rounded-full blur-[100px]"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full opacity-20"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-900/10 rounded-full blur-[100px]"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
             </div>
 
             {/* Header Content */}
             <div className="relative z-10 pt-16 pb-8 px-6 text-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg mx-auto mb-6">KS</div>
+                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-black font-bold text-xl shadow-lg mx-auto mb-6">KS</div>
                 <h1 className="text-3xl md:text-4xl font-serif font-medium tracking-tight mb-3 text-white drop-shadow-sm">
                     Choose your interests
                 </h1>
@@ -67,7 +63,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* Circular Grid Content */}
-            <div className="relative z-10 flex-1 px-4 pb-32 max-w-5xl mx-auto w-full overflow-y-auto">
+            <div className="relative z-10 flex-1 px-4 pb-32 max-w-5xl mx-auto w-full overflow-y-auto no-scrollbar">
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-y-10 gap-x-4 justify-items-center">
                     {INTERESTS.map((item) => {
                         const isSelected = selected.includes(item.id);
@@ -91,7 +87,7 @@ export default function OnboardingPage() {
                                         className={`absolute inset-0 w-full h-full object-cover transition-transform duration-700 ${isSelected ? 'scale-100' : 'group-hover:scale-110'}`}
                                     />
                                     
-                                    {/* Subtle Overlay for Unselected */}
+                                    {/* Subtle Overlay for Unselected (Better Text Contrast if needed, mostly for style) */}
                                     <div className={`absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-300`}></div>
 
                                     {/* Selected Overlay & Checkmark */}
@@ -137,4 +133,4 @@ export default function OnboardingPage() {
 
         </div>
     );
-}
+};

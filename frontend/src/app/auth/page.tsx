@@ -85,6 +85,8 @@ function AuthContent() {
         }
         if (res.success) {
           toast.success('Welcome back!');
+          // Small delay to ensure cookies are set before redirect
+          await new Promise(resolve => setTimeout(resolve, 200));
           router.push('/app/feed');
         } else {
           toast.error(res.error || 'Invalid credentials');
@@ -116,12 +118,12 @@ function AuthContent() {
           style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '40px 40px' }}>
         </div>
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/3"></div>
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-cyan-600/20 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/3"></div>
 
         {/* Header: Logo */}
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-3 w-fit hover:opacity-90 transition-opacity">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center font-bold font-display text-xl text-white shadow-lg shadow-blue-500/20">KS</div>
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center font-bold font-display text-xl text-white shadow-lg shadow-blue-500/20">KS</div>
             <span className="font-bold font-display text-xl tracking-tight">KnowledgeShare</span>
           </Link>
         </div>
@@ -135,7 +137,7 @@ function AuthContent() {
 
           <h1 className="text-5xl font-black font-display leading-[1.1] mb-6 tracking-tight">
             Own your content.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Monetize your mind.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Monetize your mind.</span>
           </h1>
 
           <p className="text-lg text-gray-400 leading-relaxed mb-12 max-w-lg">
@@ -217,7 +219,7 @@ function AuthContent() {
             <button
               type="button"
               onClick={() => toast.info('Wallet Auth coming soon!')}
-              className="w-full flex items-center justify-center gap-3 bg-[#f0f0ff] dark:bg-[#1a1a2e] border border-indigo-100 dark:border-indigo-900/50 p-3 h-12 rounded-xl text-indigo-600 dark:text-indigo-300 hover:bg-[#e6e6ff] dark:hover:bg-[#20203a] transition-all font-medium text-sm"
+              className="w-full flex items-center justify-center gap-3 bg-[#eff6ff] dark:bg-[#1a2a3e] border border-blue-100 dark:border-blue-900/50 p-3 h-12 rounded-xl text-blue-600 dark:text-blue-300 hover:bg-[#dbeafe] dark:hover:bg-[#1e3a5a] transition-all font-medium text-sm"
             >
               <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
               Connect Phantom Wallet
@@ -291,7 +293,7 @@ function AuthContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

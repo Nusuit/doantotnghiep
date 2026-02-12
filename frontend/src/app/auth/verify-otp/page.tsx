@@ -24,8 +24,8 @@ function VerifyOtpContent() {
         setLoading(true);
         try {
             await api.auth.verifyEmailOtp(email, otp);
-            toast.success("Email verified! Redirecting...");
-            router.push('/app/feed');
+            toast.success("Email verified! Let's personalize your experience ✨");
+            router.push('/app/onboarding');
         } catch (err: any) {
             console.error(err);
         } finally {
@@ -95,7 +95,7 @@ function VerifyOtpContent() {
 export default function VerifyOtpPage() {
     return (
         <div className="min-h-screen bg-[#0B1120] text-white flex items-center justify-center p-6 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-purple-900/20 to-blue-900/20 z-0"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-cyan-900/20 to-blue-900/20 z-0"></div>
             <div className="relative z-10 w-full max-w-md">
                 <Suspense fallback={<div>Loading...</div>}>
                     <VerifyOtpContent />

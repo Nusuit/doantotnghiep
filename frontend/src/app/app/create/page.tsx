@@ -217,11 +217,11 @@ export default function CreatePostPage() {
         return createPortal(
             <div className="fixed inset-0 z-[20000] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/90 backdrop-blur-sm transition-opacity" onClick={() => setShowStakeConfirm(false)}></div>
-                <div className="relative w-full max-w-md bg-white dark:bg-[#0B0E14] border border-orange-200 dark:border-orange-900/50 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
-                    <div className="h-1 bg-gradient-to-r from-orange-600 to-red-600"></div>
+                <div className="relative w-full max-w-md bg-white dark:bg-[#0B0E14] border border-blue-200 dark:border-blue-900/50 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
+                    <div className="h-1 bg-gradient-to-r from-blue-600 to-cyan-600"></div>
                     <div className="p-8 text-center">
-                        <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-orange-200 dark:border-orange-500/30">
-                            <span className="material-symbols-outlined text-3xl text-orange-600 dark:text-orange-500">lock_clock</span>
+                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-200 dark:border-blue-500/30">
+                            <span className="material-symbols-outlined text-3xl text-blue-600 dark:text-blue-500">lock_clock</span>
                         </div>
 
                         <h3 className="text-2xl font-serif font-bold text-gray-900 dark:text-white mb-2">Confirm Reservation</h3>
@@ -240,7 +240,7 @@ export default function CreatePostPage() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 justify-center mb-6 text-[10px] font-bold text-orange-600 dark:text-orange-500 bg-orange-100 dark:bg-orange-900/10 py-2 rounded-lg border border-orange-200 dark:border-orange-900/30 uppercase tracking-widest">
+                        <div className="flex items-center gap-2 justify-center mb-6 text-[10px] font-bold text-blue-600 dark:text-blue-500 bg-blue-100 dark:bg-blue-900/10 py-2 rounded-lg border border-blue-200 dark:border-blue-900/30 uppercase tracking-widest">
                             <span className="material-symbols-outlined text-sm">warning</span>
                             Non-refundable if expired
                         </div>
@@ -254,7 +254,7 @@ export default function CreatePostPage() {
                             </button>
                             <button
                                 onClick={confirmStake}
-                                className="flex-1 py-3 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl shadow-lg shadow-orange-900/20 transition-all uppercase text-xs tracking-wider"
+                                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/20 transition-all uppercase text-xs tracking-wider"
                             >
                                 Confirm Stake
                             </button>
@@ -270,11 +270,11 @@ export default function CreatePostPage() {
     const filteredTopics = POPULAR_TOPICS.filter(t => t.toLowerCase().includes(anchorQuery.toLowerCase()));
 
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-[#0B0E14] flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-300">
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0B0E14] flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-300">
             {/* Background Ambient */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-200 dark:bg-purple-900/10 rounded-full blur-[100px]"></div>
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-200 dark:bg-orange-900/10 rounded-full blur-[100px]"></div>
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-200 dark:bg-blue-900/10 rounded-full blur-[100px]"></div>
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-200 dark:bg-cyan-900/10 rounded-full blur-[100px]"></div>
             </div>
 
             {/* Exit Button for Step 1 */}
@@ -292,7 +292,7 @@ export default function CreatePostPage() {
                 {/* Header */}
                 <div className="text-center mb-10">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-300 dark:border-gray-800 bg-white/50 dark:bg-[#13161F] text-gray-500 dark:text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-4">
-                        <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
                         Knowledge Anchoring Protocol
                     </div>
                     <h1 className="text-4xl md:text-5xl font-serif font-black text-gray-900 dark:text-white mb-2">Anchor Knowledge</h1>
@@ -310,7 +310,7 @@ export default function CreatePostPage() {
                             key={cat.id}
                             onClick={() => { setCategory(cat.id as EntityCategory); setCheckStatus('idle'); }}
                             className={`p-6 rounded-2xl border text-left transition-all duration-300 group ${category === cat.id
-                                ? 'bg-white dark:bg-white/5 border-purple-500 shadow-lg shadow-purple-500/10'
+                                ? 'bg-white dark:bg-white/5 border-blue-500 shadow-lg shadow-blue-500/10'
                                 : 'bg-white/50 dark:bg-[#13161F] border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-600'
                                 }`}
                         >
@@ -389,9 +389,9 @@ export default function CreatePostPage() {
                                                             setIsTopicDropdownOpen(false);
                                                             setCheckStatus('available');
                                                         }}
-                                                        className="w-full text-left px-3 py-3 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-lg group hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-all"
+                                                        className="w-full text-left px-3 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg group hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
                                                     >
-                                                        <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-bold text-sm">
+                                                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-sm">
                                                             <span className="material-symbols-outlined text-sm">add_circle</span>
                                                             Create new topic: <span className="text-gray-900 dark:text-white">"{anchorQuery}"</span>
                                                         </div>
@@ -575,13 +575,13 @@ export default function CreatePostPage() {
 
                                     <button
                                         onClick={() => handleOptionSelect('reserve')}
-                                        className="group text-left p-5 rounded-xl bg-gray-50 dark:bg-black/20 hover:bg-gray-100 dark:hover:bg-black/40 border border-gray-200 dark:border-gray-700 hover:border-orange-500/50 transition-all"
+                                        className="group text-left p-5 rounded-xl bg-gray-50 dark:bg-black/20 hover:bg-gray-100 dark:hover:bg-black/40 border border-gray-200 dark:border-gray-700 hover:border-blue-500/50 transition-all"
                                     >
                                         <div className="flex justify-between items-start mb-2">
-                                            <span className="material-symbols-outlined text-2xl text-gray-400 group-hover:text-orange-500 dark:group-hover:text-orange-400">lock_clock</span>
-                                            <span className="text-[9px] font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-500 px-2 py-1 rounded border border-orange-200 dark:border-orange-500/20">50 U</span>
+                                            <span className="material-symbols-outlined text-2xl text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400">lock_clock</span>
+                                            <span className="text-[9px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-500 px-2 py-1 rounded border border-blue-200 dark:border-blue-500/20">50 U</span>
                                         </div>
-                                        <h4 className="font-bold text-gray-900 dark:text-white mb-1 group-hover:text-orange-500 dark:group-hover:text-orange-400">Reserve Entity</h4>
+                                        <h4 className="font-bold text-gray-900 dark:text-white mb-1 group-hover:text-blue-500 dark:group-hover:text-blue-400">Reserve Entity</h4>
                                         <p className="text-[10px] text-gray-500">Lock for 7 days. Burn deposit if inactive.</p>
                                     </button>
                                 </div>
