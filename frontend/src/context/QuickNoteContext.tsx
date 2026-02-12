@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface QuickNoteContextType {
     isQuickNoteVisible: boolean;
@@ -19,7 +19,20 @@ export const useQuickNote = () => {
 };
 
 export const QuickNoteProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [isQuickNoteVisible, setIsQuickNoteVisible] = useState(false);
+    // Persist state in localStorage
+    const [isQuickNoteVisible, setIsQuickNoteVisible] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('ks_widget_quicknote');
+            return saved !== null ? JSON.parse(saved) : true;
+        }
+        return true;
+    });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('ks_widget_quicknote', JSON.stringify(isQuickNoteVisible));
+        }
+    }, [isQuickNoteVisible]);
 
     const toggleQuickNote = () => {
         setIsQuickNoteVisible(prev => !prev);

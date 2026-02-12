@@ -3,7 +3,7 @@
 import React, { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { QuickNoteProvider, useQuickNote } from '@/context/QuickNoteContext';
+import { QuickNoteProvider } from '@/context/QuickNoteContext';
 import { QuickNote } from '@/components/shared/QuickNote';
 
 interface DashboardLayoutProps {
@@ -11,8 +11,6 @@ interface DashboardLayoutProps {
 }
 
 const DashboardContent: React.FC<DashboardLayoutProps> = ({ children }) => {
-    const { isQuickNoteVisible, setIsQuickNoteVisible } = useQuickNote();
-
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-dark-bg flex">
             <Sidebar />
@@ -24,11 +22,8 @@ const DashboardContent: React.FC<DashboardLayoutProps> = ({ children }) => {
                 </main>
             </div>
             
-            {/* Quick Note Floating Panel */}
-            <QuickNote 
-                isVisible={isQuickNoteVisible} 
-                onClose={() => setIsQuickNoteVisible(false)} 
-            />
+            {/* Quick Note Floating Widget */}
+            <QuickNote />
         </div>
     );
 };
