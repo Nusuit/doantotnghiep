@@ -713,6 +713,7 @@ export function createAuthRouter() {
           role: user.role,
           accountStatus: user.accountStatus,
           isEmailVerified: user.isEmailVerified,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },
@@ -879,6 +880,31 @@ export function createAuthRouter() {
 
       return sendSuccess(req, res, responseData);
 
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Complete onboarding
+  router.post("/complete-onboarding", authenticate, async (req, res, next) => {
+    try {
+      const userId = (req as any).user.id;
+      const { interests } = req.body;
+
+      const prisma = getPrisma() as any;
+      
+      await prisma.user.update({
+        where: { id: userId },
+        data: { hasCompletedOnboarding: true }
+      });
+
+      // TODO: Save interests when interests table is implemented
+      // For now, just mark onboarding as complete
+
+      return sendSuccess(req, res, { 
+        hasCompletedOnboarding: true,
+        message: "Onboarding completed successfully" 
+      });
     } catch (err) {
       next(err);
     }

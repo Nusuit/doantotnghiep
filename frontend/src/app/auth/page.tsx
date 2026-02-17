@@ -87,7 +87,13 @@ function AuthContent() {
           toast.success('Welcome back!');
           // Small delay to ensure cookies are set before redirect
           await new Promise(resolve => setTimeout(resolve, 200));
-          router.push('/app/feed');
+          
+          // Check if user has completed onboarding
+          if (res.user?.hasCompletedOnboarding === false) {
+            router.push('/onboarding');
+          } else {
+            router.push('/app/feed');
+          }
         } else {
           toast.error(res.error || 'Invalid credentials');
         }

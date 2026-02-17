@@ -17,14 +17,20 @@ const InfoTooltip = ({ title, content }: { title?: string, content: string }) =>
 );
 
 export default function GovernancePage() {
-    const [filter, setFilter] = useState<'All' | 'Active' | 'Passed' | 'Defeated'>('All');
+    const [searchQuery, setSearchQuery] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [votedProposals, setVotedProposals] = useState<Set<string>>(new Set());
 
     const filteredProposals = RICH_PROPOSALS.filter(p => {
-        if (filter === 'All') return true;
-        if (filter === 'Active') return p.status === 'Active';
-        return p.status === filter;
+        if (!searchQuery.trim()) return true;
+        const query = searchQuery.toLowerCase();
+        return (
+            p.title.toLowerCase().includes(query) ||
+            p.description.toLowerCase().includes(query) ||
+            p.author.toLowerCase().includes(query) ||
+            p.id.toLowerCase().includes(query) ||
+            p.type.toLowerCase().includes(query)
+        );
     });
 
     const handleVote = (id: string) => {
@@ -261,27 +267,38 @@ export default function GovernancePage() {
 
                 </div>
 
-                {/* --- RIGHT: SIDEBAR FILTERS --- */}
+                {/* --- RIGHT: SIDEBAR --- */}
                 <div className="lg:col-span-1 space-y-8">
 
-                    {/* Filter Status */}
+                    {/* Search Bar */}
                     <div className="bg-white dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-2xl p-4">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-2">Filter Status</h3>
-                        <div className="space-y-1">
-                            {['All', 'Active', 'Passed', 'Defeated'].map((status) => (
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-2 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-sm">search</span>
+                            Search Proposals
+                        </h3>
+                        <div className="relative">
+                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base">search</span>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Title, author, type..."
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2.5 pl-10 pr-10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                            />
+                            {searchQuery && (
                                 <button
-                                    key={status}
-                                    onClick={() => setFilter(status as any)}
-                                    className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex justify-between items-center ${filter === status
-                                        ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 shadow-sm'
-                                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
-                                        }`}
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                                 >
-                                    {status}
-                                    {filter === status && <span className="material-symbols-outlined text-sm">check</span>}
+                                    <span className="material-symbols-outlined text-base">close</span>
                                 </button>
-                            ))}
+                            )}
                         </div>
+                        {searchQuery && (
+                            <div className="mt-2 px-2 text-xs text-gray-500">
+                                {filteredProposals.length} result{filteredProposals.length !== 1 ? 's' : ''} found
+                            </div>
+                        )}
                     </div>
 
                     {/* Top Delegates */}

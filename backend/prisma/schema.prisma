@@ -33,6 +33,7 @@ model User {
   accountStatus   AccountStatus @default(ACTIVE) @map("account_status")
   isEmailVerified Boolean       @default(false) @map("is_email_verified")
   isPhoneVerified Boolean       @default(false) @map("is_phone_verified")
+  hasCompletedOnboarding Boolean @default(false) @map("has_completed_onboarding")
 
   // Role đơn giản - không cần bảng riêng
   role UserRole @default(USER)

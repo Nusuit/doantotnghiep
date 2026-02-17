@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
 
 // Updated Data with Real Images
 const INTERESTS = [
@@ -37,11 +38,16 @@ export default function OnboardingPage() {
         );
     };
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (selected.length >= MIN_SELECTION) {
-            toast.success("Preferences saved! Welcome to KnowledgeShare 🎉");
-            // TODO: Save preferences to backend when API is ready
-            router.push("/app/feed");
+            try {
+                await api.auth.completeOnboarding(selected);
+                toast.success("Preferences saved! Welcome to KnowledgeShare 🎉");
+                router.push("/app/feed");
+            } catch (error) {
+                console.error("Failed to save onboarding:", error);
+                toast.error("Failed to save preferences. Please try again.");
+            }
         }
     };
 
