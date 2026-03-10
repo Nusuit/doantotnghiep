@@ -53,7 +53,24 @@ const MapContainer: React.FC<MapContainerProps> = ({
     if (onMapLoad) {
       onMapLoad();
     }
-  }, [onMapLoad, setIsMapLoaded]);
+
+    // Override compass click: reset both bearing AND pitch to 0
+    setTimeout(() => {
+      const mapInstance = mapRef.current?.getMap();
+      const container = mapInstance?.getContainer();
+      const compassBtn = container?.querySelector(".mapboxgl-ctrl-compass");
+      if (compassBtn) {
+        compassBtn.addEventListener(
+          "click",
+          (e: Event) => {
+            e.stopPropagation();
+            mapInstance?.easeTo({ bearing: 0, pitch: 0, duration: 400 });
+          },
+          true // capture phase – fires before Mapbox's own resetNorth handler
+        );
+      }
+    }, 300);
+  }, [onMapLoad, setIsMapLoaded, mapRef]);
 
   const mapboxAccessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
@@ -94,7 +111,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         {/* Navigation Controls */}
         {showControls && (
           <>
-            <NavigationControl position="top-right" />
+            <NavigationControl position="top-right" visualizePitch={true} />
 
             {/* Geolocation Control */}
             <GeolocateControl

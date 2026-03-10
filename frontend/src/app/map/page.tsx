@@ -7,6 +7,7 @@ import {
   useMap,
   MapProvider,
   MapMarkers,
+  MAP_STYLES,
   type MapMarker,
   useGeolocation,
   useMapBounds,
@@ -71,7 +72,7 @@ const demoMarkers: MapMarker[] = [
 // Main map component with restaurant features
 const RestaurantMapDemo: React.FC = () => {
   const [selectedArticles, setSelectedArticles] = useState<{ id: number; title: string }[]>([]);
-  const { flyTo, mapRef, viewState } = useMap(); // Added viewState from context if available, or we track it via onMove (MapBox props)
+  const { flyTo, mapRef, viewState, setMapStyle } = useMap(); // Added viewState from context if available, or we track it via onMove (MapBox props)
   // Logic update: MapBox component in this project manages its own viewState via context?
   // Inspecting MapContainer showed it uses useMap(). So we can get viewState from useMap().
 
@@ -80,7 +81,18 @@ const RestaurantMapDemo: React.FC = () => {
 
   // Design States
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
-  const [activeStyle, setActiveStyle] = useState<MapStyle>("dark");
+  const [activeStyle, setActiveStyle] = useState<MapStyle>("custom");
+
+  // Sync activeStyle with map context
+  useEffect(() => {
+    const styleMap: Record<MapStyle, string> = {
+      custom: MAP_STYLES.CUSTOM,
+      streets: MAP_STYLES.STREETS,
+      satellite: MAP_STYLES.SATELLITE,
+      dark: MAP_STYLES.DARK,
+    };
+    setMapStyle(styleMap[activeStyle]);
+  }, [activeStyle]);
 
   // Data States
   // Replaced MapMarker[] with GeoJSON FeatureCollection
