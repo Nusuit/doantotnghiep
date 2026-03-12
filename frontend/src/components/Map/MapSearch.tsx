@@ -4,16 +4,23 @@ import React, { useState, useRef, useEffect } from "react";
 import { Search, MapPin, Clock, Star, X } from "lucide-react";
 import { useMap } from "../Map";
 
+const generateUUID = () => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 interface SearchResult {
   id: string;
   name: string;
   address: string;
-  coordinates: [number, number]; // [lng, lat]
+  coordinates?: [number, number]; // Optional initially for v1
   category?: string;
-  /** Mapbox place type: 'poi', 'address', 'neighborhood', 'place', 'region', 'country', etc. */
   place_type?: string[];
-  /** Bounding box [west, south, east, north] – present for areas/regions */
   bbox?: [number, number, number, number];
+  mapbox_id?: string; // Needed for step 2 (retrieve)
 }
 
 interface MapSearchProps {
@@ -30,6 +37,8 @@ const MapSearch: React.FC<MapSearchProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  // V1 requires session tokens to bundle typing steps
+  const [sessionToken, setSessionToken] = useState(generateUUID());
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { flyTo, addMarker, removeMarker, mapRef } = useMap();
@@ -57,37 +66,41 @@ const MapSearch: React.FC<MapSearchProps> = ({
     // -- Dynamic context from current map view --
     const mapInstance = mapRef.current?.getMap();
 
-    // --- 1. REMOTE: Global Administrative Search (No Proximity) ---
-    // Finds major cities, provinces, countries globally (resolves "Hà Nội" issue)
+    // --- Mapbox Search Box API v1: DUAL-FETCH STRATEGY ---
+    // 1. GLOBAL: Finds major cities, provinces (No Proximity) -> Limit 2
     const paramsGlobal = new URLSearchParams({
       access_token: mapboxAccessToken,
-      autocomplete: "true",
-      limit: "3", // Top 3 major places
+      session_token: sessionToken,
       language: "vi",
-      types: "country,region,district,place", // Only big administrative areas
+      limit: "2",
+      types: "country,region,district,place", // Administrative areas only
     });
-    const endpointGlobal = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?${paramsGlobal.toString()}`;
+    const endpointGlobal = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(searchQuery)}&${paramsGlobal.toString()}`;
 
-    // --- 2. REMOTE: Local POI Search (With Proximity) ---
-    // Finds cafes, airports, distinct addresses near user
+    // 2. LOCAL: Finds anything (Categories, POIs, Addresses) with Proximity -> Limit 4
     const paramsLocal = new URLSearchParams({
       access_token: mapboxAccessToken,
-      autocomplete: "true",
-      limit: "5", // Top 5 local POIs
+      session_token: sessionToken,
       language: "vi",
-      types: "locality,neighborhood,address,poi", // Small scaled places
+      limit: "4",
     });
 
     if (mapInstance) {
       const center = mapInstance.getCenter();
       paramsLocal.set("proximity", `${center.lng},${center.lat}`);
     }
-    const endpointLocal = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?${paramsLocal.toString()}`;
+    const endpointLocal = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(searchQuery)}&${paramsLocal.toString()}`;
 
-    // Parallel fetch: Global API, Local API, & Local Rendered Map Scan
-    const fetchGlobal = fetch(endpointGlobal).then((res) => (res.ok ? res.json() : { features: [] })).catch(() => ({ features: [] }));
-    const fetchLocal = fetch(endpointLocal).then((res) => (res.ok ? res.json() : { features: [] })).catch(() => ({ features: [] }));
-
+    const fetchGlobal = fetch(endpointGlobal)
+      .then((res) => (res.ok ? res.json() : { suggestions: [] }))
+      .catch((e) => ({ suggestions: [] }));
+      
+    const fetchLocal = fetch(endpointLocal)
+      .then((res) => (res.ok ? res.json() : { suggestions: [] }))
+      .catch((e) => {
+        console.error("Mapbox v1 Local Suggest Error:", e);
+        return { suggestions: [] };
+      });
 
     // 1. Scan Local Features
     const localResults: SearchResult[] = [];
@@ -95,7 +108,6 @@ const MapSearch: React.FC<MapSearchProps> = ({
       const searchTerm = searchQuery.toLowerCase();
       const addedNames = new Set<string>();
       try {
-        // Query everything rendered
         const rendered = mapInstance.queryRenderedFeatures();
         for (const feature of rendered) {
           const name =
@@ -105,7 +117,6 @@ const MapSearch: React.FC<MapSearchProps> = ({
             feature.properties?.["name:en"];
 
           if (name && name.toLowerCase().includes(searchTerm) && !addedNames.has(name)) {
-            // We only want Point features with valid coordinates
             if (feature.geometry?.type === "Point") {
               const coords = feature.geometry.coordinates as [number, number];
               if (coords.length >= 2) {
@@ -116,10 +127,9 @@ const MapSearch: React.FC<MapSearchProps> = ({
                   address: feature.properties?.address || feature.properties?.["addr:street"] || "Trên bản đồ",
                   coordinates: coords,
                   category: feature.properties?.type || feature.properties?.class || "POI",
-                  place_type: ["poi"] // Treat as point
+                  place_type: ["poi"],
                 });
 
-                // Keep max 3 local results
                 if (localResults.length >= 3) break;
               }
             }
@@ -130,52 +140,28 @@ const MapSearch: React.FC<MapSearchProps> = ({
       }
     }
 
-    // 2. Await Both Remote Features
+    // 2. Await Remote Features (v1 Global & Local)
     const [dataGlobal, dataLocal] = await Promise.all([fetchGlobal, fetchLocal]);
 
-    const parseMapboxFeatures = (features: any[]) => {
-      if (!features) return [];
-      return features.map((feature: any) => {
-        let name = feature.text || "Unknown";
-        let addressParts = [];
-        let category = "";
-
-        if (feature.properties?.category) {
-          category = feature.properties.category.split(",")[0];
-        }
-
-        if (feature.context) {
-          // Extract specific admin levels for cleaner address display
-          addressParts = feature.context
-            .filter((c: any) => c.id.startsWith("place") || c.id.startsWith("region") || c.id.startsWith("country"))
-            .map((c: any) => c.text);
-        } else if (feature.place_name) {
-          addressParts = [feature.place_name.replace(`${feature.text}, `, "")];
-        }
-
-        // Mapbox usually returns context from small to large (district -> city -> country).
-        const addressStr = addressParts.filter(Boolean).join(", ") || feature.place_name || "";
-
-        return {
-          id: feature.id || Math.random().toString(),
-          name: name,
-          address: addressStr.trim() === "" ? (feature.place_name || "Vị trí không xác định") : addressStr,
-          coordinates: feature.geometry.coordinates as [number, number],
-          category: category || feature.properties?.type || feature.place_type?.[0] || "",
-          place_type: feature.place_type as string[],
-          bbox: feature.bbox as [number, number, number, number] | undefined,
-        };
-      });
+    const parseSuggestV1 = (suggestions: any[]) => {
+      return suggestions.map((s: any) => ({
+        id: s.mapbox_id || Math.random().toString(),
+        mapbox_id: s.mapbox_id,
+        name: s.name,
+        address: s.place_formatted || s.full_address || "",
+        category: s.maki || s.feature_type || "",
+        place_type: [s.feature_type].filter(Boolean) as string[],
+        // NO COORDINATES YET, MUST FETCH ON CLICK
+      }));
     };
 
-    const parsedGlobal = parseMapboxFeatures(dataGlobal.features || []);
-    const parsedLocal = parseMapboxFeatures(dataLocal.features || []);
+    const parsedGlobal = parseSuggestV1(dataGlobal.suggestions || []);
+    const parsedLocal = parseSuggestV1(dataLocal.suggestions || []);
 
-    // 3. Combine & Filter Duplicates (prioritizing scanned local > global admin > local POIs)
+    // 3. Combine & Filter Duplicates (Local Scanned > Global Admin > Local API)
     const combined = [...localResults];
     const localNames = new Set(localResults.map((r) => r.name.toLowerCase()));
 
-    // Add Global (Cities/Countries)
     for (const r of parsedGlobal) {
       if (!localNames.has(r.name.toLowerCase())) {
         combined.push(r);
@@ -183,7 +169,6 @@ const MapSearch: React.FC<MapSearchProps> = ({
       }
     }
 
-    // Add Local POIs (Cafes, addresses)
     for (const r of parsedLocal) {
       if (!localNames.has(r.name.toLowerCase())) {
         combined.push(r);
@@ -191,7 +176,6 @@ const MapSearch: React.FC<MapSearchProps> = ({
       }
     }
 
-    // Return max 6 combined
     return combined.slice(0, 6);
   };
 
@@ -231,69 +215,93 @@ const MapSearch: React.FC<MapSearchProps> = ({
   }, [query]);
 
   // Handle result selection
-  const handleResultClick = (result: SearchResult) => {
-    // Save to recent searches
+  const handleResultClick = async (baseResult: SearchResult) => {
+    // 1. Determine Coordinates First (if missing due to V1 API)
+    let finalResult = { ...baseResult };
+    
+    if (!finalResult.coordinates && finalResult.mapbox_id && mapboxAccessToken) {
+      setIsLoading(true);
+      try {
+        const retrieveUrl = `https://api.mapbox.com/search/searchbox/v1/retrieve/${finalResult.mapbox_id}?access_token=${mapboxAccessToken}&session_token=${sessionToken}`;
+        const res = await fetch(retrieveUrl);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.features && data.features.length > 0) {
+            const feature = data.features[0];
+            finalResult.coordinates = feature.geometry.coordinates as [number, number];
+            finalResult.bbox = feature.properties?.bbox || undefined;
+            finalResult.place_type = finalResult.place_type || [feature.properties?.feature_type];
+          }
+        }
+      } catch (e) {
+        console.error("Retrieve coordinates failed:", e);
+      }
+      setIsLoading(false);
+
+      // Successfully processed a search session, regenerate token
+      setSessionToken(generateUUID());
+    }
+
+    // Cannot fly if absolutely no coordinates are found
+    if (!finalResult.coordinates) {
+      setShowResults(false);
+      return; 
+    }
+
+    // 2. Save history
     const newRecentSearches = [
-      result.name,
-      ...recentSearches.filter((s) => s !== result.name),
+      finalResult.name,
+      ...recentSearches.filter((s) => s !== finalResult.name),
     ].slice(0, 5);
     setRecentSearches(newRecentSearches);
     localStorage.setItem("mapSearchHistory", JSON.stringify(newRecentSearches));
 
-    // -- Determine if this is a POINT or an AREA --
+    // 3. Pin logic
     const isPoint =
-      !result.place_type ||
-      result.place_type.some((t) => ["poi", "address"].includes(t));
+      !finalResult.place_type ||
+      finalResult.place_type.some((t) => ["poi", "address", "postcode"].includes(t));
 
-    // Remove any previous search pin
     removeMarker("search-pin");
-
     if (isPoint) {
-      // Add a red search pin marker at the exact location
       addMarker({
         id: "search-pin",
-        longitude: result.coordinates[0],
-        latitude: result.coordinates[1],
-        title: result.name,
-        description: result.address,
+        longitude: finalResult.coordinates[0],
+        latitude: finalResult.coordinates[1],
+        title: finalResult.name,
+        description: finalResult.address,
         type: "search-pin",
         color: "#EA4335", // Google Maps red
       });
 
-      // Fly to the point
       flyTo({
-        longitude: result.coordinates[0],
-        latitude: result.coordinates[1],
+        longitude: finalResult.coordinates[0],
+        latitude: finalResult.coordinates[1],
         zoom: 16,
       });
     } else {
-      // Area: fitBounds using bbox from API, or fallback to flyTo center zoomed out
       const mapInstance = mapRef.current?.getMap();
-      if (mapInstance && result.bbox) {
+      if (mapInstance && finalResult.bbox) {
         mapInstance.fitBounds(
           [
-            [result.bbox[0], result.bbox[1]], // [west, south]
-            [result.bbox[2], result.bbox[3]], // [east, north]
+            [finalResult.bbox[0], finalResult.bbox[1]],
+            [finalResult.bbox[2], finalResult.bbox[3]],
           ],
           { padding: 60, duration: 1400, maxZoom: 14 }
         );
       } else {
-        // No bbox: just fly to center at a wider zoom
         flyTo({
-          longitude: result.coordinates[0],
-          latitude: result.coordinates[1],
+          longitude: finalResult.coordinates[0],
+          latitude: finalResult.coordinates[1],
           zoom: 12,
         });
       }
     }
 
-    // Close search
     setShowResults(false);
-    setQuery(result.name);
+    setQuery(finalResult.name);
 
-    // Callback
     if (onResultSelect) {
-      onResultSelect(result);
+      onResultSelect(finalResult);
     }
   };
 
