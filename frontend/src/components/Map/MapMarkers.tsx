@@ -10,6 +10,30 @@ interface MapMarkersProps {
   renderCustomMarker?: (marker: MapMarker) => React.ReactNode;
 }
 
+// ── Google Maps-style drop pin (for search results) ───────────────────────────
+const SearchPinIcon: React.FC<{ color?: string }> = ({ color = "#EA4335" }) => (
+  <div className="relative flex flex-col items-center" style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.35))" }}>
+    {/* Ripple ring */}
+    <div
+      className="absolute rounded-full animate-ping opacity-30"
+      style={{ width: 40, height: 40, top: 2, backgroundColor: color }}
+    />
+    {/* Teardrop pin SVG — same proportions as Google Maps */}
+    <svg width="36" height="50" viewBox="0 0 36 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M18 0C8.06 0 0 8.06 0 18C0 31.5 18 50 18 50C18 50 36 31.5 36 18C36 8.06 27.94 0 18 0Z"
+        fill={color}
+      />
+      <circle cx="18" cy="18" r="7" fill="white" fillOpacity="0.9" />
+      <circle cx="18" cy="18" r="3" fill={color} />
+    </svg>
+    {/* Drop shadow */}
+    <div className="rounded-full opacity-20 -mt-1" style={{ width: 14, height: 5, backgroundColor: "#000", filter: "blur(2px)" }} />
+  </div>
+);
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 const DefaultMarkerIcon: React.FC<{
   color?: string;
   size?: number;
@@ -25,91 +49,91 @@ const DefaultMarkerIcon: React.FC<{
   isRestaurant = false,
   category,
 }) => {
-  // Responsive size based on zoom level
-  const getResponsiveSize = () => {
-    if (zoom < 8) return Math.max(size * 0.6, 16); // Min 16px when zoomed out
-    if (zoom < 10) return Math.max(size * 0.8, 20);
-    if (zoom > 15) return Math.min(size * 1.3, 40); // Max 40px when zoomed in
-    return size;
-  };
+    // Responsive size based on zoom level
+    const getResponsiveSize = () => {
+      if (zoom < 8) return Math.max(size * 0.6, 16); // Min 16px when zoomed out
+      if (zoom < 10) return Math.max(size * 0.8, 20);
+      if (zoom > 15) return Math.min(size * 1.3, 40); // Max 40px when zoomed in
+      return size;
+    };
 
-  const actualSize = getResponsiveSize();
-  const pulseClass = isHighlighted ? "animate-pulse" : "";
+    const actualSize = getResponsiveSize();
+    const pulseClass = isHighlighted ? "animate-pulse" : "";
 
-  // Restaurant markers use circle style with restaurant icon
-  if (isRestaurant) {
+    // Restaurant markers use circle style with restaurant icon
+    if (isRestaurant) {
+      return (
+        <div
+          className={`relative flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-125 ${pulseClass}`}
+          style={{
+            width: actualSize,
+            height: actualSize,
+            filter: `drop-shadow(0 2px 6px rgba(0,0,0,0.3))`,
+          }}
+        >
+          {/* Circle marker background */}
+          <div
+            className="rounded-full border-3 border-white transition-all duration-300 hover:shadow-lg"
+            style={{
+              width: actualSize,
+              height: actualSize,
+              backgroundColor: color,
+              borderWidth: "3px",
+            }}
+          />
+          {/* Restaurant icon inside circle */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg
+              width={actualSize * 0.5}
+              height={actualSize * 0.5}
+              viewBox="0 0 24 24"
+              fill="white"
+            >
+              <path d="M8.1 13.34l2.83-2.83L3.91 3.5c-1.56 1.56-1.56 4.09 0 5.66l4.19 4.18zm6.78-1.81c1.53.71 3.68.21 5.27-1.38 1.91-1.91 2.28-4.65.81-6.12-1.46-1.46-4.20-1.10-6.12.81-1.59 1.59-2.09 3.74-1.38 5.27L3.7 19.87l1.41 1.41L12 14.41l6.88 6.88 1.41-1.41-6.88-6.88 1.27-1.27z" />
+            </svg>
+          </div>
+          {/* Category label on hover */}
+          {zoom >= 12 && category && (
+            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              {category}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Pin marker for other types (user markers, etc.)
     return (
       <div
         className={`relative flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-125 ${pulseClass}`}
         style={{
           width: actualSize,
           height: actualSize,
-          filter: `drop-shadow(0 2px 6px rgba(0,0,0,0.3))`,
+          filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.3))`,
         }}
       >
-        {/* Circle marker background */}
+        <svg
+          width={actualSize}
+          height={actualSize}
+          viewBox="0 0 24 24"
+          fill={color}
+          className="transition-all duration-300"
+        >
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+        </svg>
         <div
-          className="rounded-full border-3 border-white transition-all duration-300 hover:shadow-lg"
+          className="absolute bg-white rounded-full transition-all duration-300"
           style={{
-            width: actualSize,
-            height: actualSize,
-            backgroundColor: color,
-            borderWidth: "3px",
+            width: actualSize * 0.25,
+            height: actualSize * 0.25,
+            top: "25%",
+            left: "50%",
+            transform: "translateX(-50%)",
           }}
         />
-        {/* Restaurant icon inside circle */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <svg
-            width={actualSize * 0.5}
-            height={actualSize * 0.5}
-            viewBox="0 0 24 24"
-            fill="white"
-          >
-            <path d="M8.1 13.34l2.83-2.83L3.91 3.5c-1.56 1.56-1.56 4.09 0 5.66l4.19 4.18zm6.78-1.81c1.53.71 3.68.21 5.27-1.38 1.91-1.91 2.28-4.65.81-6.12-1.46-1.46-4.20-1.10-6.12.81-1.59 1.59-2.09 3.74-1.38 5.27L3.7 19.87l1.41 1.41L12 14.41l6.88 6.88 1.41-1.41-6.88-6.88 1.27-1.27z" />
-          </svg>
-        </div>
-        {/* Category label on hover */}
-        {zoom >= 12 && category && (
-          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-            {category}
-          </div>
-        )}
       </div>
     );
-  }
-
-  // Pin marker for other types (user markers, etc.)
-  return (
-    <div
-      className={`relative flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-125 ${pulseClass}`}
-      style={{
-        width: actualSize,
-        height: actualSize,
-        filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.3))`,
-      }}
-    >
-      <svg
-        width={actualSize}
-        height={actualSize}
-        viewBox="0 0 24 24"
-        fill={color}
-        className="transition-all duration-300"
-      >
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-      </svg>
-      <div
-        className="absolute bg-white rounded-full transition-all duration-300"
-        style={{
-          width: actualSize * 0.25,
-          height: actualSize * 0.25,
-          top: "25%",
-          left: "50%",
-          transform: "translateX(-50%)",
-        }}
-      />
-    </div>
-  );
-};
+  };
 
 const MapMarkers: React.FC<MapMarkersProps> = ({
   markers,
@@ -146,7 +170,7 @@ const MapMarkers: React.FC<MapMarkersProps> = ({
 
         const distance = Math.sqrt(
           Math.pow(marker.latitude - otherMarker.latitude, 2) +
-            Math.pow(marker.longitude - otherMarker.longitude, 2)
+          Math.pow(marker.longitude - otherMarker.longitude, 2)
         );
 
         if (distance < CLUSTER_THRESHOLD) {
@@ -237,6 +261,9 @@ const MapMarkers: React.FC<MapMarkersProps> = ({
 
   // Get marker color based on type/category
   const getMarkerColor = (marker: MapMarker) => {
+    // Override color if the marker specifies one (e.g., search pins)
+    if (marker.color) return marker.color;
+
     // Restaurant markers get different colors based on category
     if (isRestaurant(marker)) {
       // Special colors for different Vietnamese dishes
@@ -281,9 +308,8 @@ const MapMarkers: React.FC<MapMarkersProps> = ({
     }
 
     // Check Vietnamese food keywords in description or title
-    const text = `${marker.title || ""} ${
-      marker.description || ""
-    }`.toLowerCase();
+    const text = `${marker.title || ""} ${marker.description || ""
+      }`.toLowerCase();
     const vietnameseFoodKeywords = [
       "phở",
       "bánh mì",
@@ -363,79 +389,83 @@ const MapMarkers: React.FC<MapMarkersProps> = ({
     <>
       {shouldCluster
         ? // Render clusters
-          clusters.map((cluster, index) =>
-            cluster.markers.length === 1 ? (
-              // Single marker - render normally
-              <Marker
-                key={cluster.markers[0].id}
-                longitude={cluster.markers[0].longitude}
-                latitude={cluster.markers[0].latitude}
-                anchor={isRestaurant(cluster.markers[0]) ? "center" : "bottom"}
-                onClick={(e) => {
-                  e.originalEvent.stopPropagation();
-                  handleMarkerClick(cluster.markers[0]);
-                }}
-              >
-                {renderCustomMarker ? (
-                  renderCustomMarker(cluster.markers[0])
-                ) : (
-                  <DefaultMarkerIcon
-                    color={getMarkerColor(cluster.markers[0])}
-                    size={isRestaurant(cluster.markers[0]) ? 28 : 24}
-                    zoom={currentZoom}
-                    isHighlighted={highlightedMarker === cluster.markers[0].id}
-                    isRestaurant={isRestaurant(cluster.markers[0])}
-                    category={cluster.markers[0].description?.split(".")[0]}
-                  />
-                )}
-              </Marker>
-            ) : (
-              // Multiple markers - render cluster
-              <Marker
-                key={`cluster-${index}`}
-                longitude={cluster.center.lng}
-                latitude={cluster.center.lat}
-                anchor="center"
-                onClick={(e) => {
-                  e.originalEvent.stopPropagation();
-                  handleClusterClick(cluster.markers);
-                }}
-              >
-                <ClusterMarker
-                  count={cluster.markers.length}
-                  restaurants={cluster.markers}
-                  zoom={currentZoom}
-                  onClick={() => handleClusterClick(cluster.markers)}
-                />
-              </Marker>
-            )
-          )
-        : // Render individual markers when zoomed in
-          markersToRender.map((marker) => (
+        clusters.map((cluster, index) =>
+          cluster.markers.length === 1 ? (
+            // Single marker - render normally
             <Marker
-              key={marker.id}
-              longitude={marker.longitude}
-              latitude={marker.latitude}
-              anchor={isRestaurant(marker) ? "center" : "bottom"}
+              key={cluster.markers[0].id}
+              longitude={cluster.markers[0].longitude}
+              latitude={cluster.markers[0].latitude}
+              anchor={isRestaurant(cluster.markers[0]) ? "center" : "bottom"}
               onClick={(e) => {
                 e.originalEvent.stopPropagation();
-                handleMarkerClick(marker);
+                handleMarkerClick(cluster.markers[0]);
               }}
             >
               {renderCustomMarker ? (
-                renderCustomMarker(marker)
+                renderCustomMarker(cluster.markers[0])
+              ) : cluster.markers[0].type === "search-pin" ? (
+                <SearchPinIcon color={getMarkerColor(cluster.markers[0])} />
               ) : (
                 <DefaultMarkerIcon
-                  color={getMarkerColor(marker)}
-                  size={isRestaurant(marker) ? 28 : 24}
+                  color={getMarkerColor(cluster.markers[0])}
+                  size={isRestaurant(cluster.markers[0]) ? 28 : 24}
                   zoom={currentZoom}
-                  isHighlighted={highlightedMarker === marker.id}
-                  isRestaurant={isRestaurant(marker)}
-                  category={marker.description?.split(".")[0]}
+                  isHighlighted={highlightedMarker === cluster.markers[0].id}
+                  isRestaurant={isRestaurant(cluster.markers[0])}
+                  category={cluster.markers[0].description?.split(".")[0]}
                 />
               )}
             </Marker>
-          ))}
+          ) : (
+            // Multiple markers - render cluster
+            <Marker
+              key={`cluster-${index}`}
+              longitude={cluster.center.lng}
+              latitude={cluster.center.lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation();
+                handleClusterClick(cluster.markers);
+              }}
+            >
+              <ClusterMarker
+                count={cluster.markers.length}
+                restaurants={cluster.markers}
+                zoom={currentZoom}
+                onClick={() => handleClusterClick(cluster.markers)}
+              />
+            </Marker>
+          )
+        )
+        : // Render individual markers when zoomed in
+        markersToRender.map((marker) => (
+          <Marker
+            key={marker.id}
+            longitude={marker.longitude}
+            latitude={marker.latitude}
+            anchor={isRestaurant(marker) ? "center" : "bottom"}
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              handleMarkerClick(marker);
+            }}
+          >
+            {renderCustomMarker ? (
+              renderCustomMarker(marker)
+            ) : marker.type === "search-pin" ? (
+              <SearchPinIcon color={getMarkerColor(marker)} />
+            ) : (
+              <DefaultMarkerIcon
+                color={getMarkerColor(marker)}
+                size={isRestaurant(marker) ? 28 : 24}
+                zoom={currentZoom}
+                isHighlighted={highlightedMarker === marker.id}
+                isRestaurant={isRestaurant(marker)}
+                category={marker.description?.split(".")[0]}
+              />
+            )}
+          </Marker>
+        ))}
     </>
   );
 };

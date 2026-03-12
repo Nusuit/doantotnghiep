@@ -38,11 +38,12 @@ const MapPopup: React.FC<MapPopupProps> = ({
       closeOnClick={closeOnClick}
       className={className}
       style={{
-        borderRadius: "8px",
+        borderRadius: "14px",
         overflow: "hidden",
+        padding: 0,
       }}
     >
-      <div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      <div className="overflow-hidden">
         {popup.content}
       </div>
     </Popup>
