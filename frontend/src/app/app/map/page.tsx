@@ -81,6 +81,35 @@ const SAVE_TAGS: Record<
 const getSelectedPoiKey = (poi: SelectedPoi) => `${poi.name}__${poi.lat.toFixed(5)}__${poi.lng.toFixed(5)}`;
 const getSavedPlaceKey = (place: SavedPlace) => `${place.name}__${place.coordinates.lat.toFixed(5)}__${place.coordinates.lng.toFixed(5)}`;
 
+const normalizeRegionText = (value: string) =>
+    value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
+const canonicalRegionName = (token: string) => {
+    const normalized = normalizeRegionText(token);
+
+    if (normalized.includes("ho chi minh") || normalized.includes("sai gon") || normalized === "hcmc") {
+        return "Ho Chi Minh City";
+    }
+
+    if (normalized.includes("ha noi")) return "Hanoi";
+    if (normalized.includes("da nang")) return "Da Nang";
+    if (normalized.includes("can tho")) return "Can Tho";
+    if (normalized.includes("hai phong")) return "Hai Phong";
+
+    return "";
+};
+
+const removeAdministrativePrefix = (token: string) =>
+    token
+        .replace(/^(thanh pho|tp\.?|city of|city|tinh|province of|province)\s+/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
 const buildRecentHistoryId = (event: RecentHistoryEvent) => {
     if (event.type === "place" && typeof event.latitude === "number" && typeof event.longitude === "number") {
         return `place:${event.latitude.toFixed(5)}:${event.longitude.toFixed(5)}`;
@@ -95,18 +124,39 @@ const getRecentHistoryRegion = (event: RecentHistoryEvent) => {
     const address = event.address?.trim();
     if (!address) return "Unknown area";
 
-    const parts = address
+    const rawParts = address
         .split(",")
         .map((part) => part.trim())
         .filter(Boolean);
 
+    const parts = rawParts.filter((part) => {
+        const normalized = normalizeRegionText(part);
+        if (!normalized) return false;
+        if (["vietnam", "viet nam", "việt nam", "vn"].includes(normalized)) return false;
+        if (/^\d{4,6}$/.test(normalized)) return false;
+        return true;
+    });
+
     if (parts.length === 0) return "Unknown area";
 
-    for (let index = parts.length - 1; index >= 0; index -= 1) {
-        const normalized = parts[index].toLowerCase();
-        if (normalized !== "vietnam" && normalized !== "việt nam" && normalized !== "vn") {
-            return parts[index];
-        }
+    for (const part of parts) {
+        const canonical = canonicalRegionName(part);
+        if (canonical) return canonical;
+    }
+
+    const cityLevelPart = parts.find((part) => /(thanh pho|tp\.?|city|tinh|province)/i.test(part));
+    if (cityLevelPart) {
+        const stripped = removeAdministrativePrefix(cityLevelPart);
+        const canonical = canonicalRegionName(stripped);
+        return canonical || stripped || cityLevelPart;
+    }
+
+    const nonDistrictPart = [...parts].reverse().find(
+        (part) => !/(quan\s*\d+|q\.?\s*\d+|huyen|xa|phuong|ward|district|commune)/i.test(part)
+    );
+    if (nonDistrictPart) {
+        const canonical = canonicalRegionName(nonDistrictPart);
+        return canonical || nonDistrictPart;
     }
 
     return parts[parts.length - 1];

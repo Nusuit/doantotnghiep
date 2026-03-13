@@ -62,7 +62,85 @@ type DrawerTab = "main" | "saved" | "recents" | "contributions";
 const RECENT_PREVIEW_MARKER_PREFIX = "recent-history-preview-";
 const THREE_DAYS_IN_MS = 3 * 24 * 60 * 60 * 1000;
 
-const normalizeRegion = (region?: string) => region?.trim() || "Unknown area";
+const normalizeRegionText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isPostalCodeToken = (token: string) => /^\d{4,6}$/.test(token);
+
+const canonicalRegionName = (token: string) => {
+  const normalized = normalizeRegionText(token);
+
+  if (
+    normalized.includes("ho chi minh") ||
+    normalized.includes("sai gon") ||
+    normalized === "hcmc"
+  ) {
+    return "Ho Chi Minh City";
+  }
+
+  if (normalized.includes("ha noi")) return "Hanoi";
+  if (normalized.includes("da nang")) return "Da Nang";
+  if (normalized.includes("can tho")) return "Can Tho";
+  if (normalized.includes("hai phong")) return "Hai Phong";
+
+  return "";
+};
+
+const removeAdministrativePrefix = (token: string) =>
+  token
+    .replace(/^(thanh pho|tp\.?|city of|city|tinh|province of|province)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const normalizeRegion = (region?: string, address?: string) => {
+  const rawTokens = [
+    ...(address ? address.split(",") : []),
+    ...(region ? [region] : []),
+  ]
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  if (rawTokens.length === 0) return "Unknown area";
+
+  const validTokens = rawTokens.filter((token) => {
+    const normalized = normalizeRegionText(token);
+    if (!normalized) return false;
+    if (["vietnam", "viet nam", "việt nam", "vn"].includes(normalized)) return false;
+    if (isPostalCodeToken(normalized)) return false;
+    return true;
+  });
+
+  if (validTokens.length === 0) return "Unknown area";
+
+  for (const token of validTokens) {
+    const canonical = canonicalRegionName(token);
+    if (canonical) return canonical;
+  }
+
+  const cityLevelToken = validTokens.find((token) =>
+    /(thanh pho|tp\.?|city|tinh|province)/i.test(token)
+  );
+  if (cityLevelToken) {
+    const stripped = removeAdministrativePrefix(cityLevelToken);
+    const canonical = canonicalRegionName(stripped);
+    return canonical || stripped || cityLevelToken;
+  }
+
+  const nonDistrictToken = [...validTokens].reverse().find(
+    (token) => !/(quan\s*\d+|q\.?\s*\d+|huyen|xa|phuong|ward|district|commune)/i.test(token)
+  );
+  if (nonDistrictToken) {
+    const canonical = canonicalRegionName(nonDistrictToken);
+    return canonical || nonDistrictToken;
+  }
+
+  return validTokens[validTokens.length - 1];
+};
 
 const SAVED_SECTION_ICONS = {
   flag: Flag,
@@ -180,7 +258,7 @@ const MapSearch: React.FC<MapSearchProps> = ({
     const counts = new Map<string, number>();
 
     for (const item of placeHistoryItems) {
-      const region = normalizeRegion(item.region);
+      const region = normalizeRegion(item.region, item.address);
       counts.set(region, (counts.get(region) ?? 0) + 1);
     }
 
@@ -198,7 +276,7 @@ const MapSearch: React.FC<MapSearchProps> = ({
     if (selectedRegionFilters.length === 0) return placeHistoryItems;
 
     return placeHistoryItems.filter((item) =>
-      selectedRegionSet.has(normalizeRegion(item.region))
+      selectedRegionSet.has(normalizeRegion(item.region, item.address))
     );
   }, [placeHistoryItems, selectedRegionFilters, selectedRegionSet]);
 
@@ -1074,7 +1152,7 @@ const MapSearch: React.FC<MapSearchProps> = ({
     <div className="relative w-full max-w-sm">
       {isDrawerOpen && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/20" onClick={closeDrawer} />
+          <div className="fixed inset-0 z-40 bg-black/20 pointer-events-none" />
 
           <div className="absolute left-0 top-0 z-60 w-[360px] h-[calc(100vh-9.5rem)] rounded-3xl overflow-hidden border border-gray-200 dark:border-[#243252] bg-white/95 dark:bg-[#060A16]/95 backdrop-blur-xl shadow-[0_24px_80px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_80px_rgba(0,0,0,0.65)] flex flex-col">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-[#243252]">

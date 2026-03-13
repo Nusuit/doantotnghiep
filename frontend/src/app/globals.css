@@ -413,3 +413,40 @@ html {
 .mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active .mapboxgl-ctrl-icon {
   filter: none !important;
 }
+
+/* Mapbox controls - dark mode */
+.dark .mapboxgl-ctrl-group {
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45) !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+}
+
+.dark .mapboxgl-ctrl-group button:hover {
+  background: rgba(148, 163, 184, 0.16) !important;
+}
+
+.dark .mapboxgl-ctrl-group button + button {
+  border-top: 1px solid rgba(148, 163, 184, 0.22) !important;
+}
+
+.dark .mapboxgl-ctrl button .mapboxgl-ctrl-icon {
+  filter: invert(1) brightness(1.4) !important;
+}
+
+.dark .mapboxgl-ctrl-geolocate {
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45) !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+}
+
+.dark .mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
+  filter: invert(1) brightness(1.4) !important;
+}
+
+.dark .mapboxgl-ctrl-geolocate:hover {
+  background: rgba(148, 163, 184, 0.16) !important;
+}
+
+.dark .mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active {
+  background: rgba(59, 130, 246, 0.24) !important;
+}
