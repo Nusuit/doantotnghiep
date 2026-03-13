@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { QuickNoteProvider } from '@/context/QuickNoteContext';
@@ -11,6 +11,16 @@ interface DashboardLayoutProps {
 }
 
 const DashboardContent: React.FC<DashboardLayoutProps> = ({ children }) => {
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    if (!isMounted) {
+        return <div className="min-h-screen bg-gray-50 dark:bg-dark-bg" suppressHydrationWarning />;
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-dark-bg flex">
             <Sidebar />

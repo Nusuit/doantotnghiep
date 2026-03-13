@@ -10,7 +10,6 @@ import Map, {
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useMap } from "../../context/MapContext";
 import MapMarkers from "./MapMarkers";
-import MapPopup from "./MapPopup";
 
 interface MapContainerProps {
   className?: string;
@@ -80,7 +79,6 @@ const MapContainer: React.FC<MapContainerProps> = ({
     viewState,
     setViewState,
     mapStyle,
-    showPopup,
     hidePopup,
     addMarker,
     removeMarker,
@@ -199,7 +197,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         onPoiClick({ name, lat, lng, category, address });
       }
     },
-    [onClick, onPoiClick, mapRef, showPopup, hidePopup, addMarker, removeMarker]
+    [onClick, onPoiClick, mapRef, hidePopup, addMarker, removeMarker]
   );
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -254,10 +252,17 @@ const MapContainer: React.FC<MapContainerProps> = ({
         )}
 
         {/* Markers */}
-        <MapMarkers />
-
-        {/* Popup – closeOnClick=false vì handleMapClick tự quản lý đóng/mở */}
-        <MapPopup closeOnClick={false} />
+        <MapMarkers
+          onMarkerClick={(marker) => {
+            onPoiClick?.({
+              name: marker.title || "Place",
+              lat: marker.latitude,
+              lng: marker.longitude,
+              category: marker.type,
+              address: marker.description,
+            });
+          }}
+        />
 
         {/* Additional children components */}
         {children}

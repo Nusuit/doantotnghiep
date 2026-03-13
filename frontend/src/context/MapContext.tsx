@@ -21,6 +21,7 @@ export interface MapMarker {
   color?: string;
   type?: string;
   image?: string;
+  savedStatus?: "TO_VISIT" | "VISITED" | "FAVORITE" | "AVOID";
 }
 
 export interface MapPopup {

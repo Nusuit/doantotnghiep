@@ -61,6 +61,7 @@ export default function RootLayout({
         />
       </head>
       <body
+        suppressHydrationWarning
         className={`${inter.variable} ${sora.variable} ${merriweather.variable} ${jetbrainsMono.variable} font-sans antialiased bg-gray-50 dark:bg-dark-bg text-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen`}
       >
         <NextTopLoader color="#2563EB" showSpinner={false} />
