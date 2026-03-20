@@ -8,7 +8,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     # Lệnh này giúp backend chờ DB khởi động xong mới chạy (tránh crash)
     restart: always 
     command: npm run dev
@@ -32,6 +33,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123456
       POSTGRES_DB: knowledge_sharing
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d knowledge_sharing"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     ports:
       - "5433:5432"
     volumes:
@@ -51,8 +57,10 @@ services:
     container_name: knowledge_worker_container
     command: npm run worker
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     env_file:
       - .env
     restart: always

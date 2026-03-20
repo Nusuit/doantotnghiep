@@ -2,21 +2,57 @@
 
 import React from "react";
 import TiptapEditor from "../ui/TiptapEditor";
+import api from "../../lib/api";
+import { toast } from "sonner";
 
 interface CreatePostProps {
   className?: string;
-  onPost?: (content: string) => void;
+  onPost?: (content: string, contextId?: number) => void;
 }
 
 const CreatePost: React.FC<CreatePostProps> = ({ className = "", onPost }) => {
   const [content, setContent] = React.useState("");
+  const [showLocationSearch, setShowLocationSearch] = React.useState(false);
+  const [locationQuery, setLocationQuery] = React.useState("");
+  const [suggestions, setSuggestions] = React.useState<any[]>([]);
+  const [selectedContext, setSelectedContext] = React.useState<{id: string, title: string, subtitle: string} | null>(null);
+  const [isSearching, setIsSearching] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!locationQuery.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await api.search.suggest(locationQuery);
+        if (res && res.items) {
+          setSuggestions(res.items);
+        }
+      } catch (err) {
+        console.error("Search failed", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [locationQuery]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (content.trim() && onPost) {
-      onPost(content);
+      onPost(content, selectedContext ? parseInt(selectedContext.id) : undefined);
       setContent("");
+      setSelectedContext(null);
+      setShowLocationSearch(false);
+      setLocationQuery("");
     }
+  };
+
+  const handlePickOnMap = () => {
+    toast.info("Tính năng chọn trên bản đồ sẽ được cập nhật ở version sau 📍");
+    setShowLocationSearch(false);
   };
 
   return (
@@ -38,6 +74,55 @@ const CreatePost: React.FC<CreatePostProps> = ({ className = "", onPost }) => {
                 onChange={setContent}
                 placeholder="What's on your mind?"
               />
+              {/* Location Badge */}
+              {selectedContext && (
+                <div className="flex items-center space-x-2 mt-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full w-max text-sm shadow-sm transition-all duration-300 transform scale-100">
+                   <span className="text-xl">📍</span> 
+                   <span className="font-medium">{selectedContext.title}</span>
+                   <button type="button" onClick={() => setSelectedContext(null)} className="ml-2 hover:text-blue-900 border-l border-blue-200 pl-2">✕</button>
+                </div>
+              )}
+              {/* Location Search Bar with Animation */}
+              <div className={`transition-all duration-300 ease-in-out overflow-hidden ${showLocationSearch && !selectedContext ? 'max-h-[300px] mt-3 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={locationQuery}
+                    onChange={(e) => setLocationQuery(e.target.value)}
+                    placeholder="Nhập tên quán, địa chỉ..."
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm outline-none"
+                  />
+                  {isSearching && (
+                    <div className="absolute right-3 top-2.5">
+                       <span className="w-4 h-4 rounded-full border-2 border-solid border-blue-500 border-r-transparent animate-spin inline-block"></span>
+                    </div>
+                  )}
+                </div>
+                {locationQuery.trim() && (
+                  <div className="mt-1 border border-gray-100 rounded-lg shadow-sm bg-white overflow-hidden max-h-48 overflow-y-auto">
+                    {suggestions.length > 0 ? (
+                      suggestions.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => { setSelectedContext(item); setShowLocationSearch(false); setLocationQuery(""); }}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors"
+                        >
+                          <div className="text-sm font-medium text-gray-800">{item.title}</div>
+                          <div className="text-xs text-gray-500 truncate">{item.subtitle}</div>
+                        </button>
+                      ))
+                    ) : !isSearching ? (
+                      <div className="px-4 py-3 text-sm text-center">
+                        <p className="text-gray-500 mb-2">Không tìm thấy trong hệ thống?</p>
+                        <button type="button" onClick={handlePickOnMap} className="text-blue-600 font-medium hover:underline flex items-center justify-center w-full">
+                          Chọn trên bản đồ 📍
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -78,7 +163,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ className = "", onPost }) => {
 
               <button
                 type="button"
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                onClick={() => setShowLocationSearch(!showLocationSearch)}
+                className={`flex items-center space-x-2 transition-colors duration-200 ${showLocationSearch || selectedContext ? 'text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
               >
                 <svg
                   className="w-5 h-5"

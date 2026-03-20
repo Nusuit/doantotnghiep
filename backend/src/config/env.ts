@@ -2,10 +2,12 @@ import { z } from "zod";
 
 const envSchema = z.object({
   NODE_ENV: z.string().optional(),
+  HOST: z.string().optional().default("0.0.0.0"),
   PORT: z.coerce.number().int().positive().optional().default(4000),
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(16),
   CORS_ORIGIN: z.string().optional().default("http://localhost:3000"),
+  APP_URL: z.string().url().optional().default("http://localhost:3000"),
 });
 
 export type Env = z.infer<typeof envSchema>;

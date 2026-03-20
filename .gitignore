@@ -89,3 +89,8 @@ Thumbs.db
 .dockerignore
 *.local
 .agent
+
+# Logs
+*.out
+docs/vietnam-260213.osm.pbf
+mobile-app/build_log.txt

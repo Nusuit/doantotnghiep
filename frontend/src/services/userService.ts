@@ -17,6 +17,7 @@ export interface UserData {
     role: string;
     accountStatus: string;
     isEmailVerified: boolean;
+    walletAddress?: string | null;
     createdAt: string;
     updatedAt: string;
     profile?: UserProfile;

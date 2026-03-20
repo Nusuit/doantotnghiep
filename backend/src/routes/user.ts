@@ -61,7 +61,6 @@ export function createUsersRouter() {
                     email: true,
                     role: true,
                     accountStatus: true,
-                    isEmailVerified: true,
                     createdAt: true,
                     updatedAt: true,
                     profile: true,

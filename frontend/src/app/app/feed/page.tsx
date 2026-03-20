@@ -93,7 +93,7 @@ export default function FeedPage() {
                 onClick={() => router.push('/app/create')}
                 className="group cursor-pointer"
             >
-                <div className="relative bg-white dark:bg-[#0B0E14] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 transition-all duration-500 hover:border-primary/30 dark:hover:border-primary/30 hover:shadow-[0_0_30px_-10px_rgba(16,185,129,0.15)] overflow-hidden">
+                <div className="relative bg-white dark:bg-[#0B0E14] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 transition-all duration-500 hover:border-primary/30 dark:hover:border-primary/30 hover:shadow-[0_0_30px_-10px_rgba(79,70,229,0.15)] overflow-hidden">
 
                     {/* Inner Shadow Overlay for Depth */}
                     <div className="absolute inset-0 shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)] dark:shadow-[inset_0_2px_20px_rgba(0,0,0,0.4)] pointer-events-none rounded-2xl"></div>

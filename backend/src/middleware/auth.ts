@@ -28,7 +28,19 @@ export const requireActiveUser = async (req: Request, res: Response, next: NextF
     if (!userId) return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Unauthorized");
 
     try {
-        // We must check DB for current status, not rely on token
+        const { redis: redisClient } = await import("../modules/redis");
+        const cacheKey = `cache:user:status:${userId}`;
+        
+        // 1. Check Redis Cache First
+        const cachedStatus = await redisClient.get(cacheKey);
+        if (cachedStatus) {
+            if (cachedStatus !== "ACTIVE") {
+                return sendError(req, res, 403, "ERR_FORBIDDEN", "Account is not active");
+            }
+            return next();
+        }
+
+        // 2. Cache Miss: Query DB
         const { getPrisma } = require("../db/prisma"); // Dynamic import to avoid circular dep if any
         const prisma = getPrisma();
 
@@ -36,6 +48,11 @@ export const requireActiveUser = async (req: Request, res: Response, next: NextF
             where: { id: userId },
             select: { accountStatus: true }
         });
+
+        const statusStr = user ? user.accountStatus : "NOT_FOUND";
+
+        // 3. Set Cache (TTL 300s = 5 minutes)
+        await redisClient.setex(cacheKey, 300, statusStr);
 
         if (!user || user.accountStatus !== "ACTIVE") {
             return sendError(req, res, 403, "ERR_FORBIDDEN", "Account is not active");

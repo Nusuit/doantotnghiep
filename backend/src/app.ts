@@ -13,6 +13,7 @@ import { createReadyRouter } from "./routes/ready";
 import "./modules/redis"; // Trigger to connect Redis
 import { createUsersRouter } from "./routes/user"; // Import named export
 import { createFeedRouter } from "./routes/feed";
+import { createMobileRouter } from "./routes/mobile";
 import { sendError } from "./utils/response";
 
 export function createApp() {
@@ -48,6 +49,7 @@ export function createApp() {
     app.use("/api/restaurants", createRestaurantsRouter());
     app.use("/api/users", createUsersRouter()); // Register user routes
     app.use("/api/feed", createFeedRouter()); // Register feed routes
+    app.use("/api", createMobileRouter());
 
 
     // Context-based discovery APIs (doc-compliant)

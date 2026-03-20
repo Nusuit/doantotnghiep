@@ -14,10 +14,6 @@ const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   fullName: z.string().min(1, "Full name is required"),
-  confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
 });
 
 const loginSchema = z.object({
@@ -214,14 +210,6 @@ function AuthContent() {
               Sign in with Google
             </button>
 
-            <button
-              type="button"
-              onClick={() => toast.info('Wallet Auth coming soon!')}
-              className="w-full flex items-center justify-center gap-3 bg-[#f0f0ff] dark:bg-[#1a1a2e] border border-indigo-100 dark:border-indigo-900/50 p-3 h-12 rounded-xl text-indigo-600 dark:text-indigo-300 hover:bg-[#e6e6ff] dark:hover:bg-[#20203a] transition-all font-medium text-sm"
-            >
-              <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
-              Connect Phantom Wallet
-            </button>
           </div>
 
           <div className="relative py-2">
@@ -265,7 +253,7 @@ function AuthContent() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between ml-1">
                 <label htmlFor="password" className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Password</label>
-                {isLogin && <a href="#" className="text-xs font-bold text-blue-600 hover:text-blue-700">Forgot password?</a>}
+                {isLogin && <Link href="/auth/forgot-password" className="text-xs font-bold text-blue-600 hover:text-blue-700">Forgot password?</Link>}
               </div>
               <div className="relative">
                 <input
