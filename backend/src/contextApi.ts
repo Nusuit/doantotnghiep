@@ -51,11 +51,12 @@ const createArticleBodySchema = z.object({
         longitude: z.number().optional(),
       })
     )
-    .min(1),
+    .min(1)
+    .max(1),
 });
 
 const interactionSchema = z.object({
-  type: z.enum(["VIEW", "SAVE", "UPVOTE"]),
+  type: z.enum(["VIEW", "SHARE", "SAVE", "UPVOTE", "DOWNVOTE", "REPORT"]),
   timeSpentMs: z.number().int().min(0).max(60 * 60 * 1000).optional(),
   scrollDepthPercent: z.number().int().min(0).max(100).optional(),
   locationLat: z.number().optional(),
@@ -67,7 +68,7 @@ const batchInteractionSchema = z.object({
     .array(
       z.object({
         articleId: z.number().int().positive(),
-        type: z.enum(["VIEW", "SAVE", "UPVOTE"]),
+        type: z.enum(["VIEW", "SHARE", "SAVE", "UPVOTE", "DOWNVOTE", "REPORT"]),
         timeSpentMs: z.number().int().min(0).max(60 * 60 * 1000).optional(),
         scrollDepthPercent: z.number().int().min(0).max(100).optional(),
       })
@@ -139,7 +140,7 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
       }
 
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const authorId = Number((req as any).user?.id);
       if (!authorId) return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Unauthorized");
 
@@ -219,12 +220,10 @@ export function createContextApiRouter() {
       for (const c of parsed.data.contexts) {
         let existing;
         if (c.type === "PLACE") {
-          // Heuristic Identity: Matching by (lat, lng) strictly for MVP.
-          // Future: may need spatial clustering or fuzzy name matching.
+          // PLACE identity is exact coordinates. Name/address may evolve, coordinates stay canonical.
           existing = await prisma.context.findFirst({
             where: {
               type: c.type,
-              name: c.name.trim(),
               latitude: c.latitude,
               longitude: c.longitude,
             },
@@ -288,7 +287,7 @@ export function createContextApiRouter() {
   // GET /api/articles/:id
   router.get("/articles/:id", async (req, res, next) => {
     try {
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -318,7 +317,7 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
       }
 
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const articleId = Number(req.params.id);
       if (!Number.isFinite(articleId) || articleId <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -356,7 +355,7 @@ export function createContextApiRouter() {
 
       if (type === "UPVOTE") {
         const existingVote = await prisma.interaction.findFirst({
-          where: { userId, articleId }
+          where: { userId, articleId, type: "UPVOTE" }
         });
 
         if (!existingVote) {
@@ -384,9 +383,39 @@ export function createContextApiRouter() {
         return sendSuccess(req, res, { upvoted: true });
       }
 
+      if (type === "SAVE" || type === "DOWNVOTE" || type === "REPORT" || type === "SHARE") {
+        const existingInteraction = await prisma.interaction.findFirst({
+          where: { userId, articleId, type }
+        });
+        if (!existingInteraction) {
+          const txOps: any[] = [
+            prisma.interaction.create({
+              data: {
+                userId,
+                articleId,
+                type,
+                timeSpentMs,
+                scrollDepthPercent,
+                locationLat,
+                locationLong
+              }
+            })
+          ];
+          if (type === "SAVE") {
+            txOps.push(
+              prisma.article.update({
+                where: { id: articleId },
+                data: { saveCount: { increment: 1 } }
+              })
+            );
+          }
+          await prisma.$transaction(txOps);
+        }
+        return sendSuccess(req, res, { recorded: true });
+      }
+
       const incrementData: any = {};
       if (type === "VIEW") incrementData.viewCount = { increment: 1 };
-      if (type === "SAVE") incrementData.saveCount = { increment: 1 };
 
       await prisma.$transaction([
         prisma.interaction.create({
@@ -423,7 +452,7 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
       }
 
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const userId = Number((req as any).user?.id);
       if (!userId) return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Unauthorized");
 
@@ -439,14 +468,14 @@ export function createContextApiRouter() {
         return sendError(req, res, 404, "ERR_NOT_FOUND", "Some articles not found");
       }
 
-      const articleMap = new Map(articles.map((a: any) => [a.id, a]));
+      const articleMap = new Map<number, any>(articles.map((a: any) => [a.id, a]));
 
       const existingVotes = await prisma.interaction.findMany({
-        where: { userId, articleId: { in: articleIds } },
-        select: { id: true }
+        where: { userId, articleId: { in: articleIds }, type: { in: ["SAVE", "UPVOTE", "DOWNVOTE", "REPORT", "SHARE"] } },
+        select: { articleId: true, type: true }
       });
 
-      const votedSet = new Set(existingVotes.map((v: any) => v.articleId));
+      const existingInteractionSet = new Set(existingVotes.map((v: any) => `${v.articleId}:${v.type}`));
 
       // Rate Limit for VIEWs in Batch
       // 1. Get recent views (last 30 mins) - Strengthened integrity
@@ -460,7 +489,7 @@ export function createContextApiRouter() {
         },
         select: { articleId: true }
       });
-      const recentViewedArticleIds = new Set(recentViews.map(v => v.articleId));
+      const recentViewedArticleIds = new Set(recentViews.map((v: any) => v.articleId));
 
       await prisma.$transaction(async (tx: any) => {
         for (const item of items) {
@@ -473,12 +502,8 @@ export function createContextApiRouter() {
           }
 
           if (item.type === "UPVOTE") {
-            if (votedSet.has(item.articleId)) continue;
-            votedSet.add(item.articleId);
-
-            await tx.vote.create({
-              data: { userId, articleId: item.articleId, type: "UP" }
-            });
+            if (existingInteractionSet.has(`${item.articleId}:UPVOTE`)) continue;
+            existingInteractionSet.add(`${item.articleId}:UPVOTE`);
             await tx.interaction.create({
               data: {
                 userId,
@@ -495,13 +520,35 @@ export function createContextApiRouter() {
             continue;
           }
 
+          if (item.type === "SAVE" || item.type === "DOWNVOTE" || item.type === "REPORT" || item.type === "SHARE") {
+            const dedupeKey = `${item.articleId}:${item.type}`;
+            if (existingInteractionSet.has(dedupeKey)) continue;
+            existingInteractionSet.add(dedupeKey);
+
+            await tx.interaction.create({
+              data: {
+                userId,
+                articleId: item.articleId,
+                type: item.type,
+                timeSpentMs: item.timeSpentMs,
+                scrollDepthPercent: item.scrollDepthPercent
+              }
+            });
+            if (item.type === "SAVE") {
+              await tx.article.update({
+                where: { id: item.articleId },
+                data: { saveCount: { increment: 1 } }
+              });
+            }
+            continue;
+          }
+
           const incrementData: any = {};
           if (item.type === "VIEW") {
             incrementData.viewCount = { increment: 1 };
             // Mark as viewed in our local set to prevent double counting within the same batch
             recentViewedArticleIds.add(item.articleId);
           }
-          if (item.type === "SAVE") incrementData.saveCount = { increment: 1 };
 
           await tx.interaction.create({
             data: {
@@ -547,7 +594,7 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
       }
 
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const articleId = Number(req.params.id);
       if (!Number.isFinite(articleId) || articleId <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -578,25 +625,13 @@ export function createContextApiRouter() {
       if (!article) return sendError(req, res, 404, "ERR_NOT_FOUND", "Not found");
 
       // Refactor: Decoupled Suggestion from Interaction
-      const suggestion = await prisma.$transaction(async (tx: any) => {
-        const created = await tx.suggestion.create({
-          data: {
-            authorId: userId,
-            articleId,
-            content: parsed.data.content,
-            comment: parsed.data.comment || null,
-          }
-        });
-
-        // NOTE: We do NOT create an Interaction(type=SUGGEST) anymore.
-        // Suggestion is a value object, not a signal user interaction.
-
-        await tx.article.update({
-          where: { id: articleId },
-          data: { suggestionCount: { increment: 1 } }
-        });
-
-        return created;
+      const suggestion = await prisma.suggestion.create({
+        data: {
+          authorId: userId,
+          articleId,
+          content: parsed.data.content,
+          comment: parsed.data.comment || null,
+        }
       });
 
       await enqueueScoringJobs({ articleId, userId: article.authorId });
@@ -609,7 +644,7 @@ export function createContextApiRouter() {
   // GET /api/contexts/:id
   router.get("/contexts/:id", async (req, res, next) => {
     try {
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -644,7 +679,7 @@ export function createContextApiRouter() {
       }
 
       const { minLat, minLng, maxLat, maxLng, category, categories, reviewStatus, minStars, limit } = parsed.data;
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
 
       const where: any = { type: "PLACE" };
       if (
@@ -699,7 +734,7 @@ export function createContextApiRouter() {
     requireCsrf,
     async (req, res, next) => {
       try {
-        const prisma = getPrisma();
+        const prisma: any = getPrisma();
         const contextId = Number(req.params.id);
         if (!Number.isFinite(contextId) || contextId <= 0) {
           return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -726,12 +761,14 @@ export function createContextApiRouter() {
         let review = await prisma.article.findFirst({
           where: {
             contextId,
-            authorId: userId,
             type: "REVIEW"
           }
         });
 
         if (review) {
+          if (review.authorId !== userId) {
+            return sendError(req, res, 409, "ERR_REVIEW_EXISTS", "This PLACE already has a canonical review article.");
+          }
           review = await prisma.article.update({
             where: { id: review.id },
             data: {
@@ -766,7 +803,7 @@ export function createContextApiRouter() {
   // GET /api/map/contexts/:id/reviews
   router.get("/map/contexts/:id/reviews", async (req, res, next) => {
     try {
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const contextId = Number(req.params.id);
       if (!Number.isFinite(contextId) || contextId <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -837,7 +874,7 @@ export function createContextApiRouter() {
   // GET /api/map/contexts/:id/articles
   router.get("/map/contexts/:id/articles", async (req, res, next) => {
     try {
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");

@@ -1,74 +1,55 @@
-# KnowledgeShare Optimization & Features Implementation Plan
+# IMPLEMENTATION_PLAN
 
-This plan covers the implementation of Mobile OAuth, Flutter Web fixes, and proposed Database Schema optimizations.
+## Current state (as of 2026-03-31)
 
-Provide a comprehensive optimization and feature set for the KnowledgeShare project across Mobile, Web, and Backend.
+The database refactor is complete. The current schema matches the design in `backend/docs/DATABASE.md`.
 
-## User Review Required
+Completed work:
+- Database schema refactored (removed restaurants, places, otp_verifications, context_reviews tables)
+- Articles now use direct `context_id` FK (one-to-one with Context)
+- Reviews are Articles with `type=REVIEW`
+- KNOW-U wallet integrated (earn/spend flow)
+- Auth: email+password, email OTP, Google OAuth
+- Feed with KV-gated scoring
+- Map with PLACE contexts
+- Search with proximity ranking
+- Mobile Flutter app scaffold (auth, map, explore, search, profile)
+- Frontend Next.js app (landing, auth, feed, map, social, chat UI)
 
-> [!IMPORTANT]
-> **Mapbox Web Support**: For Mapbox to work on Flutter Web, you might need to add Mapbox GL JS to your [web/index.html](file:///c:/Kien/Web/doantotnghiep/mobile-app/web/index.html). I will provide the script to run the app, but if the map doesn't show, we'll need to update [web/index.html](file:///c:/Kien/Web/doantotnghiep/mobile-app/web/index.html).
+---
 
-## Proposed Changes
+## Active work
 
-### [Component] mobile-app/scripts
+- Prisma migration: `20260323110000_refactor_database_contract_v2` (in `backend/prisma/migrations/`)
+- Branch: `refactor/infrastructure`
 
-#### [MODIFY] [run_web.bat](file:///c:/Kien/Web/doantotnghiep/mobile-app/scripts/run_web.bat)
-Updated to support Bash/Windows environments, automatic port freeing, and correct API URL.
+---
 
-### [Component] Database (Prisma)
+## Remaining for MVP launch
 
-#### [MODIFY] [schema.prisma](file:///c:/Kien/Web/doantotnghiep/backend/prisma/schema.prisma)
-*   **Split User table:** Separate Auth/Security fields (OTP, tokens, password hash) into a `UserSecurity` table.
-*   **Cleanup Legacy Tables (Priority):**
-    *   Delete `restaurants`, `places`, and `otp_verifications` tables.
-    *   Delete the root [prisma/schema.prisma](file:///c:/Kien/Web/doantotnghiep/prisma/schema.prisma) file (old 5-table schema) to avoid Prisma Client confusion.
-*   **Remove redundant fields:** Delete `trust_level` and keep `reputation_score` for display.
-*   **Upgrade `favorite_locations`:** Add `articleId`, `authorId`, and `contextId` (FKs) to maintain a live connection between the saved place and the original knowledge source/author.
-*   **[NEW] `Follow` system:** Add a `Follow` table (followerId, followingId).
-*   **Merge Context Reviews into Articles:**
-    *   Delete the `context_reviews` table and the `stars` field.
-    *   Add a `type` enum to [Article](file:///c:/Kien/Web/doantotnghiep/backend/src/services/scoring.service.ts#41-50) (e.g., `POST`, `REVIEW`).
-    *   Standardize on Upvote/Downvote/Suggestion/Report for all content types.
-*   **Simplify Article-Context Relationship (Strict One-to-One):**
-    *   Delete the `article_contexts` junction table.
-    *   Add a mandatory `contextId` field directly to the [Article](file:///c:/Kien/Web/doantotnghiep/backend/src/services/scoring.service.ts#41-50) table.
-    *   *Note:* Context remains the "Subject" that makes an article unique (Location, Book info, etc.).
-*   **Merge Category & Tag → `Taxonomy`:**
-    *   Combine both into a single table with a `type` enum (`CATEGORY`, `TAG`).
-    *   Supports both hierarchical (Category) and flat (Tag) classification.
-*   **[NEW] Unified `Collection` System (Private Bookmarks & Public Series):**
-    *   Replace `Series` and `FavoriteLocation` with a unified `Collection` and `CollectionItem` model.
-    *   Add `isPublic` flag to `Collection`:
-        *   `false`: Acts as private bookmark folders (Private World).
-        *   `true`: Acts as a public `Series` (Public World).
-    *   `CollectionItem` can link to an [Article](file:///c:/Kien/Web/doantotnghiep/backend/src/services/scoring.service.ts#41-50) or a [Context](file:///c:/Kien/Web/doantotnghiep/backend/src/middleware/requestContext.ts#4-15) directly.
-*   **Cleanup Content Logging:**
-    *   Delete `ArticleHistory` (can be handled via versioning or logs if needed later).
-*   **Optimize `interactions` (Signal Store):**
-    *   Role: Capture raw user behavior signals (View, TimeSpent, ScrollDepth, Report, Upvote/Downvote).
-    *   *Action:* Merge the `Vote` model into `Interaction` by adding an `UPVOTE/DOWNVOTE` type to `InteractionType`.
-*   **[NEW] Unified Wallet/Ledger (Economy):**
-    *   Merge `PointTransaction` and `Transaction` into a single `Ledger` or `WalletTransaction` table.
-    *   Distinguish by `currency` (POINTS, KNOW_U, KNOW_G).
-    *   Rationale: Streamlines reward distribution and balance tracking logic in the Backend.
-*   **Gamification Logic (`Badge`):**
-    *   Keep `Badge` and `UserBadge` but link criteria primarily to `reputation_score` and high-quality `interactions`.
+| Area | Task |
+|---|---|
+| Backend | Complete suggestion accept/reject flow with KNOW-U earn |
+| Backend | Wire KS decay cron job in worker |
+| Backend | Comments endpoints (create, list, upvote) |
+| Frontend | Article creation UI (category + context picker) |
+| Frontend | Suggestion modal (submit + track status) |
+| Frontend | KNOW-U dashboard |
+| Frontend | Wallet connect + KNOW-G balance display |
+| Mobile | Complete map review publish flow |
+| Mobile | Wire OAuth deep-link callback |
+| Both | End-to-end test: write article → suggestion → accept → KV/KS update |
 
-### [Component] Mobile App (iOS/Android)
+---
 
-#### [MODIFY] [Info.plist](file:///c:/Kien/Web/doantotnghiep/mobile-app/ios/Runner/Info.plist)
-Added `CFBundleURLTypes` for `knowledgeshare://` deep link.
+## Mobile-specific notes
 
-#### [MODIFY] [mapbox_config.dart](file:///c:/Kien/Web/doantotnghiep/mobile-app/lib/src/core/config/mapbox_config.dart)
-Implemented conditional imports to prevent crashes on Flutter Web while keeping native Mapbox functionality.
+- Mapbox on Flutter Web requires adding Mapbox GL JS script to `mobile-app/web/index.html`
+- OAuth callback deep-link: iOS needs `Info.plist` URL scheme, Android needs intent filter in `AndroidManifest.xml`
 
-## Verification Plan
+---
 
-### Automated Tests
-- N/A
+## Infrastructure notes
 
-### Manual Verification
-1. Run [scripts/run_web.bat](file:///c:/Kien/Web/doantotnghiep/mobile-app/scripts/run_web.bat) from the `mobile-app` directory.
-2. Verify if the app launches in Chrome.
-3. Check if the `API_BASE_URL` and `MAPBOX_ACCESS_TOKEN` are correctly passed to the app.
+- Docker Compose runs `npm run dev` (tsx watch) in containers — production mode requires removing the `command` override
+- No CI/CD pipeline yet — manual deploy

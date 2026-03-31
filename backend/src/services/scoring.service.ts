@@ -44,8 +44,10 @@ interface ScoringArticle {
     createdAt: Date;
     viewCount: number;
     saveCount: number;
-    suggestionCount: number;
     upvoteCount: number;
+    _count?: {
+        suggestions: number;
+    };
 }
 
 interface ScoringUserUpdate {
@@ -56,7 +58,7 @@ interface ScoringUserUpdate {
 
 export class ScoringService {
     static async recalcArticleScores(batchSize: number = 200, articleId?: number) {
-        const prisma = getPrisma();
+        const prisma: any = getPrisma();
         const articles = await prisma.article.findMany({
             where: {
                 status: "PUBLISHED",
@@ -68,16 +70,21 @@ export class ScoringService {
                 createdAt: true,
                 viewCount: true,
                 saveCount: true,
-                suggestionCount: true,
                 upvoteCount: true,
+                _count: {
+                    select: {
+                        suggestions: true,
+                    }
+                }
             }
         }) as unknown as ScoringArticle[];
 
         const updates = articles.map((article) => {
+            const suggestionCount = article._count?.suggestions || 0;
             const { score, kvScore } = computeKvScore({
                 viewCount: article.viewCount || 0,
                 saveCount: article.saveCount || 0,
-                suggestionCount: article.suggestionCount || 0,
+                suggestionCount,
                 upvoteCount: article.upvoteCount || 0,
             });
 
@@ -89,7 +96,7 @@ export class ScoringService {
                 tier: article.tier as ArticleTier,
                 kvScore,
                 isEvergreen,
-                suggestionCount: article.suggestionCount || 0,
+                suggestionCount,
                 saveCount: article.saveCount || 0,
                 upvoteCount: article.upvoteCount || 0,
                 createdAt: article.createdAt,
@@ -120,19 +127,23 @@ export class ScoringService {
     }
 
     static async recalcTierPool(batchSize: number = 200) {
-        const prisma = getPrisma();
+        const prisma: any = getPrisma();
         const articles = await prisma.article.findMany({
             where: {
                 status: "PUBLISHED",
-                tier: { in: ["TIER_0_PENDING", "TIER_1_DISCOVERY", "TIER_2_GROWTH"] }
+                tier: { in: ["TIER_0", "TIER_1", "TIER_2"] }
             },
             select: {
                 id: true,
                 tier: true,
                 viewCount: true,
                 saveCount: true,
-                suggestionCount: true,
                 upvoteCount: true,
+                _count: {
+                    select: {
+                        suggestions: true,
+                    }
+                }
             }
         }) as unknown as ScoringArticle[];
 
@@ -141,7 +152,7 @@ export class ScoringService {
         for (const article of articles) {
             const viewCount = article.viewCount || 0;
             const saveCount = article.saveCount || 0;
-            const suggestionCount = article.suggestionCount || 0;
+            const suggestionCount = article._count?.suggestions || 0;
             const upvoteCount = article.upvoteCount || 0;
             const saveRate = viewCount > 0 ? saveCount / viewCount : 0;
             const engagementRate = viewCount > 0 ? (saveCount + suggestionCount + upvoteCount) / viewCount : 0;
@@ -150,25 +161,21 @@ export class ScoringService {
             const interactions = saveCount + suggestionCount + upvoteCount;
 
             // Tier Logic using Config
-            if (article.tier === "TIER_0_PENDING") {
+            if (article.tier === "TIER_0") {
                 if (viewCount >= TIER_CONFIG.T0_TO_T1.minViews || interactions >= TIER_CONFIG.T0_TO_T1.minInteractions) {
-                    nextTier = ArticleTier.TIER_1_DISCOVERY;
+                    nextTier = ArticleTier.TIER_1;
                 }
             }
 
-            if (article.tier === "TIER_1_DISCOVERY") {
-                if (viewCount > TIER_CONFIG.T1_TO_ARCHIVE.minViews && engagementRate < TIER_CONFIG.T1_TO_ARCHIVE.maxEngagementRate) {
-                    nextTier = ArticleTier.ARCHIVED;
-                } else if (viewCount > TIER_CONFIG.T1_TO_T2.minViews && (saveRate > TIER_CONFIG.T1_TO_T2.minSaveRate || suggestionCount >= TIER_CONFIG.T1_TO_T2.minSuggestions)) {
-                    nextTier = ArticleTier.TIER_2_GROWTH;
+            if (article.tier === "TIER_1") {
+                if (viewCount > TIER_CONFIG.T1_TO_T2.minViews && (saveRate > TIER_CONFIG.T1_TO_T2.minSaveRate || suggestionCount >= TIER_CONFIG.T1_TO_T2.minSuggestions)) {
+                    nextTier = ArticleTier.TIER_2;
                 }
             }
 
-            if (article.tier === "TIER_2_GROWTH") {
-                if (viewCount > TIER_CONFIG.T2_TO_ARCHIVE.minViews && engagementRate < TIER_CONFIG.T2_TO_ARCHIVE.maxEngagementRate) {
-                    nextTier = ArticleTier.ARCHIVED;
-                } else if (viewCount > TIER_CONFIG.T2_TO_T3.minViews && engagementRate > TIER_CONFIG.T2_TO_T3.minEngagementRate) {
-                    nextTier = ArticleTier.TIER_3_VIRAL;
+            if (article.tier === "TIER_2") {
+                if (viewCount > TIER_CONFIG.T2_TO_T3.minViews && engagementRate > TIER_CONFIG.T2_TO_T3.minEngagementRate) {
+                    nextTier = ArticleTier.TIER_3;
                 }
             }
 
@@ -191,51 +198,49 @@ export class ScoringService {
     }
 
     static async recalcUserScores(batchSize: number = 200, userId?: number) {
-        const prisma = getPrisma();
+        const prisma: any = getPrisma();
 
         // MVP Optimization: Only update users who HAVE content or are queried.
-        const contributions = await prisma.article.groupBy({
-            by: ["authorId"],
+        const contributions = await prisma.article.findMany({
             where: {
                 status: "PUBLISHED",
                 ...(userId ? { authorId: userId } : {})
             },
-            _sum: {
-                suggestionCount: true,
+            select: {
+                authorId: true,
                 saveCount: true,
                 upvoteCount: true,
+                _count: {
+                    select: {
+                        suggestions: true,
+                    }
+                }
             }
         });
 
-        // Map need for current KS
-        const authorIds = contributions.map((c: any) => c.authorId);
-        const users = await prisma.user.findMany({
-            where: { id: { in: authorIds } },
-            select: { id: true, ksScore: true }
+        const authorIds = Array.from(new Set(contributions.map((c: any) => c.authorId)));
+        if (authorIds.length === 0) {
+            return { updated: 0 };
+        }
+
+        const contributionMap = new Map<number, { suggestionCount: number; saveCount: number; upvoteCount: number }>();
+        contributions.forEach((entry: any) => {
+            const current = contributionMap.get(entry.authorId) || { suggestionCount: 0, saveCount: 0, upvoteCount: 0 };
+            current.suggestionCount += entry._count?.suggestions || 0;
+            current.saveCount += entry.saveCount || 0;
+            current.upvoteCount += entry.upvoteCount || 0;
+            contributionMap.set(entry.authorId, current);
         });
 
-        // Typed Map for safety
-        const userMap = new Map<number, { id: number; ksScore: number }>();
-        users.forEach((u: any) => userMap.set(u.id, u));
-
-        const updates: ScoringUserUpdate[] = contributions.map((entry: any) => {
-            const user = userMap.get(entry.authorId);
-
-            const suggestionCount = entry._sum.suggestionCount || 0;
-            const saveCount = entry._sum.saveCount || 0;
-            const upvoteCount = entry._sum.upvoteCount || 0;
-
+        const updates: ScoringUserUpdate[] = Array.from(contributionMap.entries()).map(([authorId, entry]) => {
+            const suggestionCount = entry.suggestionCount || 0;
+            const saveCount = entry.saveCount || 0;
+            const upvoteCount = entry.upvoteCount || 0;
             const contributionPoints = (suggestionCount * 10) + (saveCount * 5) + (upvoteCount * 1);
-
-            // ARCHITECTURAL DECISION: "Implicit Decay" (See docs)
-            // Score is calculated based on SUM of Active Published Articles.
-            // If user is inactive, articles move to ARCHIVED tier (via recalcTierPool).
-            // Archived articles are excluded from this query -> Total Points Drop -> KS Drops.
-
-            const ksScore = ScoringEngine.calculateKnowledgeScore(0, contributionPoints); // 0 means recalc from scratch
+            const ksScore = ScoringEngine.calculateKnowledgeScore(0, contributionPoints);
             const reputationScore = Math.round(ksScore * 100);
 
-            return { id: entry.authorId, ksScore, reputationScore };
+            return { id: authorId, ksScore, reputationScore };
         });
 
         for (let i = 0; i < updates.length; i += batchSize) {

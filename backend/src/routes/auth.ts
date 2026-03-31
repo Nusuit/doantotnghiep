@@ -92,7 +92,31 @@ function clearAuthCookies(res: any) {
   res.clearCookie("csrf_token", { path: "/" });
 }
 
-// function splitFullName(fullName: string) { ... } -> Moved to utils/text.ts
+function authSecuritySelect() {
+  return {
+    passwordHash: true,
+    isEmailVerified: true,
+    isPhoneVerified: true,
+    lastLoginAt: true,
+    loginAttempts: true,
+    lockedUntil: true,
+    emailOtp: true,
+    emailOtpAttempts: true,
+    emailOtpLastSentAt: true,
+    emailOtpLockedUntil: true,
+    passwordResetToken: true,
+    passwordResetExpiresAt: true,
+    emailVerificationToken: true,
+    emailVerificationExpiresAt: true,
+  };
+}
+
+function authProfileSelect() {
+  return {
+    displayName: true,
+    avatarUrl: true,
+  };
+}
 
 
 function getRequestIp(req: any) {
@@ -218,7 +242,10 @@ export function createAuthRouter() {
 
       let user = await prisma.user.findUnique({
         where: { email },
-        include: { profile: true }
+        include: {
+          profile: true,
+          security: true,
+        }
       });
 
       if (!user) {
@@ -231,10 +258,14 @@ export function createAuthRouter() {
         user = await prisma.user.create({
           data: {
             email,
-            passwordHash,
-            isEmailVerified: true,
             accountStatus: "ACTIVE",
             role: "USER",
+            security: {
+              create: {
+                passwordHash,
+                isEmailVerified: true,
+              },
+            },
             profile: {
               create: {
                 displayName,
@@ -248,12 +279,22 @@ export function createAuthRouter() {
         if (user.accountStatus === "PENDING_VERIFY") {
           await prisma.user.update({
             where: { id: user.id },
-            data: { accountStatus: "ACTIVE", isEmailVerified: true }
+            data: { accountStatus: "ACTIVE" }
+          });
+          await prisma.userSecurity.upsert({
+            where: { userId: user.id },
+            create: {
+              userId: user.id,
+              isEmailVerified: true,
+            },
+            update: {
+              isEmailVerified: true,
+            },
           });
         }
       }
 
-      if (["INACTIVE", "SUSPENDED", "BANNED"].includes(user.accountStatus)) {
+      if (["SUSPENDED", "BANNED"].includes(user.accountStatus)) {
         return res.redirect(`${frontendUrl}/auth?error=ACCOUNT_LOCKED`);
       }
 
@@ -309,24 +350,28 @@ export function createAuthRouter() {
         where: { id: userId },
         select: {
           email: true,
-          isEmailVerified: true,
-          emailOtpAttempts: true,
-          emailOtpLastSentAt: true,
-          emailOtpLockedUntil: true,
+          security: {
+            select: {
+              isEmailVerified: true,
+              emailOtpAttempts: true,
+              emailOtpLastSentAt: true,
+              emailOtpLockedUntil: true,
+            }
+          }
         }
       });
 
       if (!user) return sendError(req, res, 404, "ERR_NOT_FOUND", "User not found");
-      if (user.isEmailVerified) return sendError(req, res, 400, "ERR_VALIDATION", "Email already verified");
+      if (user.security?.isEmailVerified) return sendError(req, res, 400, "ERR_VALIDATION", "Email already verified");
 
       const now = new Date();
-      if (user.emailOtpLockedUntil && user.emailOtpLockedUntil > now) {
+      if (user.security?.emailOtpLockedUntil && user.security.emailOtpLockedUntil > now) {
         return sendError(req, res, 429, "ERR_RATE_LIMIT", "Too many attempts. Try again later.");
       }
 
       const cooldownSeconds = Number(process.env.EMAIL_OTP_COOLDOWN_SECONDS || 90);
-      if (user.emailOtpLastSentAt) {
-        const elapsedMs = now.getTime() - new Date(user.emailOtpLastSentAt).getTime();
+      if (user.security?.emailOtpLastSentAt) {
+        const elapsedMs = now.getTime() - new Date(user.security.emailOtpLastSentAt).getTime();
         if (elapsedMs < cooldownSeconds * 1000) {
           return sendError(req, res, 429, "ERR_RATE_LIMIT", "Please wait before requesting another code.");
         }
@@ -337,9 +382,17 @@ export function createAuthRouter() {
       const expiryMinutes = Number(process.env.EMAIL_VERIFICATION_EXPIRY_MINUTES || 30);
       const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
 
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
+      await prisma.userSecurity.upsert({
+        where: { userId },
+        create: {
+          userId,
+          emailVerificationToken: tokenHash,
+          emailVerificationExpiresAt: expiresAt,
+          emailOtpAttempts: 0,
+          emailOtpLastSentAt: now,
+          emailOtpLockedUntil: null,
+        },
+        update: {
           emailVerificationToken: tokenHash,
           emailVerificationExpiresAt: expiresAt,
           emailOtpAttempts: 0,
@@ -363,16 +416,30 @@ export function createAuthRouter() {
       const prisma = getPrisma() as any;
       const tokenHash = hashToken(token);
       const user = await prisma.user.findFirst({
-        where: { email, emailVerificationToken: tokenHash }
+        where: {
+          email,
+          security: {
+            is: {
+              emailVerificationToken: tokenHash,
+            },
+          },
+        },
+        include: {
+          security: {
+            select: {
+              emailVerificationExpiresAt: true,
+            }
+          }
+        }
       });
 
       if (!user) return sendError(req, res, 400, "ERR_VALIDATION", "Invalid token");
-      if (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < new Date()) {
+      if (user.security?.emailVerificationExpiresAt && user.security.emailVerificationExpiresAt < new Date()) {
         return sendError(req, res, 400, "ERR_EXPIRED", "Token expired");
       }
 
-      await prisma.user.update({
-        where: { id: user.id },
+      await prisma.userSecurity.update({
+        where: { userId: user.id },
         data: { isEmailVerified: true, emailVerificationToken: null, emailVerificationExpiresAt: null }
       });
 
@@ -399,10 +466,14 @@ export function createAuthRouter() {
       const user = await prisma.user.create({
         data: {
           email,
-          passwordHash,
-          isEmailVerified: false,
           accountStatus: "PENDING_VERIFY",
           role: "USER",
+          security: {
+            create: {
+              passwordHash,
+              isEmailVerified: false,
+            },
+          },
           profile: {
             create: { displayName },
           },
@@ -412,9 +483,13 @@ export function createAuthRouter() {
           email: true,
           role: true,
           accountStatus: true,
-          isEmailVerified: true,
           createdAt: true,
           updatedAt: true,
+          security: {
+            select: {
+              isEmailVerified: true,
+            }
+          },
           profile: { select: { displayName: true } },
         },
       });
@@ -425,8 +500,8 @@ export function createAuthRouter() {
       const expiryMinutes = Number(process.env.EMAIL_VERIFICATION_EXPIRY_MINUTES || 15);
       const now = new Date();
       const expiresAt = new Date(now.getTime() + expiryMinutes * 60 * 1000);
-      await prisma.user.update({
-        where: { id: user.id },
+      await prisma.userSecurity.update({
+        where: { userId: user.id },
         data: {
           emailVerificationToken: otpHash,
           emailVerificationExpiresAt: expiresAt,
@@ -476,31 +551,33 @@ export function createAuthRouter() {
         select: {
           id: true,
           email: true,
-          isEmailVerified: true,
-          emailVerificationToken: true,
-          emailVerificationExpiresAt: true,
-          emailOtpAttempts: true,
-          emailOtpLockedUntil: true,
+          phoneNumber: true,
+          role: true,
+          accountStatus: true,
+          profile: true,
+          security: {
+            select: authSecuritySelect(),
+          }
         }
       });
 
       if (!user) return sendError(req, res, 404, "ERR_NOT_FOUND", "User not found");
-      if (user.isEmailVerified) return sendError(req, res, 400, "ERR_VALIDATION", "Email already verified");
+      if (user.security?.isEmailVerified) return sendError(req, res, 400, "ERR_VALIDATION", "Email already verified");
 
       const now = new Date();
-      if (user.emailOtpLockedUntil && user.emailOtpLockedUntil > now) {
+      if (user.security?.emailOtpLockedUntil && user.security.emailOtpLockedUntil > now) {
         return sendError(req, res, 429, "ERR_RATE_LIMIT", "Too many attempts. Try again later.");
       }
 
       const otpHash = hashToken(otpCode);
-      if (user.emailVerificationToken !== otpHash) {
-        const nextAttempts = (user.emailOtpAttempts || 0) + 1;
+      if (user.security?.emailVerificationToken !== otpHash) {
+        const nextAttempts = (user.security?.emailOtpAttempts || 0) + 1;
         const maxAttempts = Number(process.env.EMAIL_OTP_MAX_ATTEMPTS || 5);
         const lockMinutes = Number(process.env.EMAIL_OTP_LOCK_MINUTES || 15);
         const shouldLock = nextAttempts >= maxAttempts;
 
-        await prisma.user.update({
-          where: { id: user.id },
+        await prisma.userSecurity.update({
+          where: { userId: user.id },
           data: {
             emailOtpAttempts: nextAttempts,
             emailOtpLockedUntil: shouldLock ? new Date(now.getTime() + lockMinutes * 60 * 1000) : null,
@@ -510,23 +587,43 @@ export function createAuthRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid OTP code");
       }
 
-      if (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < now) {
+      if (user.security?.emailVerificationExpiresAt && user.security.emailVerificationExpiresAt < now) {
         return sendError(req, res, 400, "ERR_EXPIRED", "OTP expired");
       }
 
       // Activate User
-      const updatedUser = await prisma.user.update({
+      await prisma.user.update({
         where: { id: user.id },
+        data: {
+          accountStatus: "ACTIVE",
+        },
+      });
+      await prisma.userSecurity.update({
+        where: { userId: user.id },
         data: {
           isEmailVerified: true,
           emailVerificationToken: null,
           emailVerificationExpiresAt: null,
-          accountStatus: "ACTIVE",
           emailOtpAttempts: 0,
           emailOtpLockedUntil: null,
           emailOtpLastSentAt: null,
         },
-        select: { id: true, email: true, phoneNumber: true, role: true, accountStatus: true, isEmailVerified: true, profile: true },
+      });
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true,
+          email: true,
+          phoneNumber: true,
+          role: true,
+          accountStatus: true,
+          profile: true,
+          security: {
+            select: {
+              isEmailVerified: true,
+            }
+          }
+        }
       });
 
       const accessToken = signToken({ id: user.id, email: user.email! });
@@ -549,7 +646,15 @@ export function createAuthRouter() {
 
       setAuthCookies(res, accessToken, refreshToken);
 
-      return sendSuccess(req, res, { token: accessToken, user: updatedUser });
+      return sendSuccess(req, res, {
+        token: accessToken,
+        user: updatedUser
+          ? {
+              ...updatedUser,
+              isEmailVerified: updatedUser.security?.isEmailVerified ?? false,
+            }
+          : null,
+      });
     } catch (err) { next(err); }
   });
 
@@ -564,24 +669,28 @@ export function createAuthRouter() {
         select: {
           id: true,
           email: true,
-          isEmailVerified: true,
-          emailOtpAttempts: true,
-          emailOtpLastSentAt: true,
-          emailOtpLockedUntil: true,
+          security: {
+            select: {
+              isEmailVerified: true,
+              emailOtpAttempts: true,
+              emailOtpLastSentAt: true,
+              emailOtpLockedUntil: true,
+            }
+          }
         }
       });
 
       if (!user) return sendError(req, res, 404, "ERR_NOT_FOUND", "User not found");
-      if (user.isEmailVerified) return sendError(req, res, 400, "ERR_VALIDATION", "Email already verified");
+      if (user.security?.isEmailVerified) return sendError(req, res, 400, "ERR_VALIDATION", "Email already verified");
 
       const now = new Date();
-      if (user.emailOtpLockedUntil && user.emailOtpLockedUntil > now) {
+      if (user.security?.emailOtpLockedUntil && user.security.emailOtpLockedUntil > now) {
         return sendError(req, res, 429, "ERR_RATE_LIMIT", "Too many attempts. Try again later.");
       }
 
       const cooldownSeconds = Number(process.env.EMAIL_OTP_COOLDOWN_SECONDS || 90);
-      if (user.emailOtpLastSentAt) {
-        const elapsedMs = now.getTime() - new Date(user.emailOtpLastSentAt).getTime();
+      if (user.security?.emailOtpLastSentAt) {
+        const elapsedMs = now.getTime() - new Date(user.security.emailOtpLastSentAt).getTime();
         if (elapsedMs < cooldownSeconds * 1000) {
           return sendError(req, res, 429, "ERR_RATE_LIMIT", "Please wait before requesting another code.");
         }
@@ -591,8 +700,8 @@ export function createAuthRouter() {
       const otpHash = hashToken(otpCode);
       const expiryMinutes = Number(process.env.EMAIL_VERIFICATION_EXPIRY_MINUTES || 15);
       const expiresAt = new Date(now.getTime() + expiryMinutes * 60 * 1000);
-      await prisma.user.update({
-        where: { id: user.id },
+      await prisma.userSecurity.update({
+        where: { userId: user.id },
         data: {
           emailVerificationToken: otpHash,
           emailVerificationExpiresAt: expiresAt,
@@ -630,13 +739,16 @@ export function createAuthRouter() {
 
       const user = await prisma.user.findUnique({
         where: { email },
-        include: { profile: { select: { displayName: true } } },
+        include: {
+          profile: { select: { displayName: true } },
+          security: { select: authSecuritySelect() },
+        },
       });
-      if (!user || !user.passwordHash) {
+      if (!user || !user.security?.passwordHash) {
         return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Invalid credentials");
       }
 
-      if (user.lockedUntil && user.lockedUntil > new Date()) {
+      if (user.security.lockedUntil && user.security.lockedUntil > new Date()) {
         return sendError(req, res, 423, "ERR_LOCKED", "Account temporarily locked. Try again later.");
       }
 
@@ -647,19 +759,19 @@ export function createAuthRouter() {
         });
       }
 
-      if (["INACTIVE", "SUSPENDED", "BANNED", "DELETED"].includes(user.accountStatus)) {
+      if (["SUSPENDED", "BANNED"].includes(user.accountStatus)) {
         return sendError(req, res, 403, "ERR_FORBIDDEN", "Account is not active");
       }
 
-      const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
+      const ok = await bcrypt.compare(parsed.data.password, user.security.passwordHash);
       if (!ok) {
-        const nextAttempts = (user.loginAttempts || 0) + 1;
+        const nextAttempts = (user.security.loginAttempts || 0) + 1;
         const maxAttempts = Number(process.env.LOGIN_MAX_ATTEMPTS || 5);
         const lockMinutes = Number(process.env.LOGIN_LOCK_MINUTES || 15);
         const shouldLock = nextAttempts >= maxAttempts;
 
-        await prisma.user.update({
-          where: { id: user.id },
+        await prisma.userSecurity.update({
+          where: { userId: user.id },
           data: {
             loginAttempts: nextAttempts,
             lockedUntil: shouldLock ? new Date(Date.now() + lockMinutes * 60 * 1000) : null,
@@ -669,14 +781,14 @@ export function createAuthRouter() {
         return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Invalid credentials");
       }
 
-      if (user.loginAttempts || user.lockedUntil) {
-        await prisma.user.update({
-          where: { id: user.id },
+      if (user.security.loginAttempts || user.security.lockedUntil) {
+        await prisma.userSecurity.update({
+          where: { userId: user.id },
           data: { loginAttempts: 0, lockedUntil: null },
         });
       }
 
-      if (!user.isEmailVerified) {
+      if (!user.security.isEmailVerified) {
         return sendError(req, res, 403, "ERR_FORBIDDEN", "Email not verified", {
           requireVerification: true,
           email: user.email,
@@ -712,7 +824,7 @@ export function createAuthRouter() {
           name: user.profile?.displayName,
           role: user.role,
           accountStatus: user.accountStatus,
-          isEmailVerified: user.isEmailVerified,
+          isEmailVerified: user.security.isEmailVerified,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },
@@ -742,7 +854,7 @@ export function createAuthRouter() {
 
       const user = await prisma.user.findUnique({ where: { id: existing.userId } });
       if (!user) return sendError(req, res, 404, "ERR_NOT_FOUND", "User not found");
-      if (["PENDING_VERIFY", "INACTIVE", "SUSPENDED", "BANNED", "DELETED"].includes(user.accountStatus)) {
+      if (["PENDING_VERIFY", "SUSPENDED", "BANNED"].includes(user.accountStatus)) {
         await prisma.refreshToken.updateMany({
           where: { userId: user.id },
           data: { revoked: true }
@@ -851,7 +963,11 @@ export function createAuthRouter() {
           email: true,
           role: true,
           accountStatus: true,
-          isEmailVerified: true,
+          security: {
+            select: {
+              isEmailVerified: true,
+            }
+          },
           profile: {
             select: {
               displayName: true,
@@ -868,7 +984,7 @@ export function createAuthRouter() {
         email: user.email,
         role: user.role,
         accountStatus: user.accountStatus,
-        isEmailVerified: user.isEmailVerified,
+        isEmailVerified: user.security?.isEmailVerified ?? false,
         status: 'authenticated',
         name: user.profile?.displayName,
         avatar: user.profile?.avatarUrl

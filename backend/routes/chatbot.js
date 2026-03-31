@@ -3,6 +3,14 @@ const router = express.Router();
 const authenticateJWT = require("../middleware/auth");
 const ChatService = require("../services/chatService");
 
+function sendChatDisabled(res, error) {
+  return res.status(error?.status || 410).json({
+    success: false,
+    code: error?.code || "CHAT_DISABLED",
+    error: "Chat legacy storage has been removed from the current Prisma contract",
+  });
+}
+
 // Get user's chat conversations
 router.get("/conversations", authenticateJWT, async (req, res) => {
   try {
@@ -12,11 +20,7 @@ router.get("/conversations", authenticateJWT, async (req, res) => {
       data: conversations,
     });
   } catch (error) {
-    console.error("Get conversations error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Không thể lấy danh sách cuộc trò chuyện",
-    });
+    return sendChatDisabled(res, error);
   }
 });
 
@@ -37,11 +41,7 @@ router.get(
         data: messages,
       });
     } catch (error) {
-      console.error("Get messages error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Không thể lấy tin nhắn",
-      });
+      return sendChatDisabled(res, error);
     }
   }
 );
@@ -74,11 +74,7 @@ router.post(
         data: response,
       });
     } catch (error) {
-      console.error("Send message error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Không thể gửi tin nhắn",
-      });
+      return sendChatDisabled(res, error);
     }
   }
 );
@@ -99,11 +95,7 @@ router.post("/conversations", authenticateJWT, async (req, res) => {
       data: conversation,
     });
   } catch (error) {
-    console.error("Create conversation error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Không thể tạo cuộc trò chuyện mới",
-    });
+    return sendChatDisabled(res, error);
   }
 });
 
@@ -122,11 +114,7 @@ router.delete(
         message: "Đã xóa cuộc trò chuyện",
       });
     } catch (error) {
-      console.error("Delete conversation error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Không thể xóa cuộc trò chuyện",
-      });
+      return sendChatDisabled(res, error);
     }
   }
 );

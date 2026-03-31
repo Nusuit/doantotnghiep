@@ -81,6 +81,12 @@ Thumbs.db
 .cache/
 .parcel-cache/
 
+# Claude Code
+.claude/
+CLAUDE.md
+**/CLAUDE.md
+**/.claude/
+
 # Misc
 .npm
 .node_repl_history

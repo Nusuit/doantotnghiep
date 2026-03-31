@@ -52,14 +52,14 @@ export class FeedIndexService {
         // FUTURE: Implement Recommendation Logic here
         // For now: Simple Recency Feed
 
-        const prisma = getPrisma();
+        const prisma: any = getPrisma();
 
         const decoded = decodeCursor(cursor);
         const cursorDate = decoded ? new Date(decoded.createdAt) : null;
 
         const whereBase: any = {
             status: "PUBLISHED",
-            tier: { in: ["TIER_0_PENDING", "TIER_1_DISCOVERY", "TIER_2_GROWTH", "TIER_3_VIRAL"] }
+            tier: { in: ["TIER_0", "TIER_1", "TIER_2", "TIER_3"] }
         };
 
         if (decoded && cursorDate && !Number.isNaN(cursorDate.getTime())) {

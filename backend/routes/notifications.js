@@ -33,7 +33,7 @@ router.post("/read", authenticateJWT, async (req, res) => {
   const { upToId } = req.body;
   await prisma.notification.updateMany({
     where: { userId, id: { lte: upToId } },
-    data: { read: true },
+    data: { isRead: true },
   });
   res.json({ message: "Notifications marked as read" });
 });

@@ -1,9 +1,6 @@
-// SIMPLIFIED PRISMA SCHEMA - OPTIMIZED FOR MVP
-// Focused on fast querying, signal collection, and unified taxonomy/content structures.
-
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"] // Enable extensions preview
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
@@ -11,68 +8,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// BẢNG CHÍNH - User Authentication và thông tin cơ bản
 model User {
-  id          Int     @id @default(autoincrement())
-  email       String? @unique @db.VarChar(255)
-  phoneNumber String? @unique @map("phone_number") @db.VarChar(20)
-
-  // Web2.5 - Solana Wallet Integration
-  walletAddress String? @unique @map("wallet_address") @db.VarChar(44)
-
-  // Web2.5 - Reputation & Token System (UPDATED for MVP)
-  ksScore         Float @default(0.0) @map("ks_score") // Knowledge Score - Reputation
-  reputationScore Int   @default(0) @map("reputation_score") // Legacy/Display
-  knowUBalance    Int   @default(0) @map("know_u_balance") // Off-chain Points (Integer)
-  knowGBalance    Float @default(0.0) @map("know_g_balance") // On-chain Token (Decimal/Float)
-
-  // Account status
+  id            Int           @id @default(autoincrement())
+  email         String?       @unique @db.VarChar(255)
+  phoneNumber   String?       @unique @map("phone_number") @db.VarChar(20)
+  walletAddress String?       @unique @map("wallet_address") @db.VarChar(44)
+  ksScore       Float         @default(0.0) @map("ks_score")
+  reputationScore Int         @default(0) @map("reputation_score")
+  knowUBalance  Int           @default(0) @map("know_u_balance")
+  knowGBalance  Float         @default(0.0) @map("know_g_balance")
   accountStatus AccountStatus @default(ACTIVE) @map("account_status")
+  role          UserRole      @default(USER)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  // Role đơn giản - không cần bảng riêng
-  role UserRole @default(USER)
+  security            UserSecurity?
+  profile             UserProfile?
+  refreshTokens       RefreshToken[]
+  articles            Article[]
+  suggestions         Suggestion[]        @relation("SuggestionAuthor")
+  comments            Comment[]
+  interactions        Interaction[]
+  notifications       Notification[]
+  collections         Collection[]
+  walletTransactions  WalletTransaction[]
+  followers           Follow[]            @relation("FollowTarget")
+  following           Follow[]            @relation("FollowSource")
+  badges              UserBadge[]
+  editedArticleVersions ArticleVersion[]  @relation("ArticleVersionEditor")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  security           UserSecurity?
-  profile            UserProfile?
-  conversations      Conversation[]
-  articles           Article[]
-  walletTransactions WalletTransaction[]
-  refreshTokens      RefreshToken[]
-
-  // New Relations for MVP
-  collections  Collection[]
-  badges       UserBadge[]
-  interactions Interaction[]
-  suggestions  Suggestion[]
-  followers    Follow[]      @relation("UserFollowers")
-  following    Follow[]      @relation("UserFollows")
-
-  @@index([email], map: "idx_email")
-  @@index([phoneNumber], map: "idx_phone_number")
-  @@index([walletAddress], map: "idx_wallet_address")
-  @@index([ksScore(sort: Desc)], map: "idx_ks_score") // Index for reputation ranking
-  @@index([accountStatus], map: "idx_account_status")
-  @@index([role], map: "idx_role")
+  @@index([ksScore(sort: Desc)], map: "idx_users_ks_score")
+  @@index([accountStatus], map: "idx_users_account_status")
+  @@index([role], map: "idx_users_role")
   @@map("users")
 }
 
 model UserSecurity {
-  id              Int     @id @default(autoincrement())
-  userId          Int     @unique @map("user_id")
-  passwordHash    String? @map("password_hash") @db.VarChar(255)
-  isEmailVerified Boolean @default(false) @map("is_email_verified")
-  isPhoneVerified Boolean @default(false) @map("is_phone_verified")
-
-  // Login info
-  lastLoginAt   DateTime? @map("last_login_at")
-  loginAttempts Int       @default(0) @map("login_attempts")
-  lockedUntil   DateTime? @map("locked_until")
-
-  // OTP and Verification
+  id                         Int       @id @default(autoincrement())
+  userId                     Int       @unique @map("user_id")
+  passwordHash               String?   @map("password_hash") @db.VarChar(255)
+  isEmailVerified            Boolean   @default(false) @map("is_email_verified")
+  isPhoneVerified            Boolean   @default(false) @map("is_phone_verified")
+  lastLoginAt                DateTime? @map("last_login_at")
+  loginAttempts              Int       @default(0) @map("login_attempts")
+  lockedUntil                DateTime? @map("locked_until")
+  emailOtp                   String?   @map("email_otp") @db.VarChar(255)
   emailOtpAttempts           Int       @default(0) @map("email_otp_attempts")
   emailOtpLastSentAt         DateTime? @map("email_otp_last_sent_at")
   emailOtpLockedUntil        DateTime? @map("email_otp_locked_until")
@@ -80,377 +60,308 @@ model UserSecurity {
   passwordResetExpiresAt     DateTime? @map("password_reset_expires_at")
   emailVerificationToken     String?   @map("email_verification_token") @db.VarChar(255)
   emailVerificationExpiresAt DateTime? @map("email_verification_expires_at")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_security")
 }
 
-model Follow {
-  followerId  Int      @map("follower_id")
-  followingId Int      @map("following_id")
-  createdAt   DateTime @default(now()) @map("created_at")
+model UserProfile {
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @unique @map("user_id")
+  displayName        String   @map("display_name") @db.VarChar(100)
+  avatarUrl          String?  @map("avatar_url") @db.VarChar(500)
+  bio                String?  @db.Text
+  isProfilePublic    Boolean  @default(true) @map("is_profile_public")
+  firstName          String?  @map("first_name") @db.VarChar(50)
+  lastName           String?  @map("last_name") @db.VarChar(50)
+  language           String   @default("vi") @db.VarChar(5)
+  timezone           String   @default("Asia/Ho_Chi_Minh") @db.VarChar(50)
+  emailNotifications Boolean  @default(true) @map("email_notifications")
+  pushNotifications  Boolean  @default(true) @map("push_notifications")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  follower  User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
-  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([followerId, followingId])
-  @@index([followerId], map: "idx_follow_follower")
-  @@index([followingId], map: "idx_follow_following")
-  @@map("follows")
+  @@index([displayName], map: "idx_user_profiles_display_name")
+  @@index([isProfilePublic], map: "idx_user_profiles_is_public")
+  @@map("user_profiles")
 }
 
 model RefreshToken {
   id         Int       @id @default(autoincrement())
   userId     Int       @map("user_id")
   tokenHash  String    @unique @map("token_hash") @db.VarChar(255)
+  revoked    Boolean   @default(false)
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
   userAgent  String?   @map("user_agent") @db.VarChar(255)
   ipAddress  String?   @map("ip_address") @db.VarChar(64)
-  revoked    Boolean   @default(false)
   replacedBy String?   @map("replaced_by") @db.VarChar(255)
-  expiresAt  DateTime  @map("expires_at")
   lastUsedAt DateTime? @map("last_used_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId], map: "idx_refresh_user")
-  @@index([revoked], map: "idx_refresh_revoked")
-  @@index([expiresAt], map: "idx_refresh_expires")
+  @@index([userId], map: "idx_refresh_tokens_user_id")
+  @@index([revoked], map: "idx_refresh_tokens_revoked")
+  @@index([expiresAt], map: "idx_refresh_tokens_expires_at")
   @@map("refresh_tokens")
 }
 
-// BẢNG PROFILE - Thông tin cá nhân chi tiết
-model UserProfile {
-  id     Int @id @default(autoincrement())
-  userId Int @unique @map("user_id")
+model Context {
+  id              Int         @id @default(autoincrement())
+  type            ContextType
+  name            String      @db.VarChar(255)
+  latitude        Float?
+  longitude       Float?
+  category        String?     @db.VarChar(100)
+  avgRating       Float       @default(0.0) @map("avg_rating")
+  source          String?     @db.VarChar(64)
+  sourceRef       String?     @map("source_ref") @db.VarChar(128)
+  description     String?     @db.Text
+  address         String?     @db.VarChar(500)
+  isReviewed      Boolean     @default(false) @map("is_reviewed")
+  reviewCount     Int         @default(0) @map("review_count")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
 
-  // Display info
-  displayName String  @map("display_name") @db.VarChar(100)
-  firstName   String? @map("first_name") @db.VarChar(50)
-  lastName    String? @map("last_name") @db.VarChar(50)
-  avatarUrl   String? @map("avatar_url") @db.VarChar(500)
+  articles        Article[]
+  collectionItems CollectionItem[]
 
-  // Personal info
-  bio         String?   @db.Text
-  birthDate   DateTime? @map("birth_date") @db.Date
-  gender      Gender?
-  phoneNumber String?   @map("phone_number") @db.VarChar(20)
-
-  // Address
-  country String? @db.VarChar(100)
-  city    String? @db.VarChar(100)
-  address String? @db.Text
-
-  // Preferences
-  language        String  @default("vi") @db.VarChar(5)
-  timezone        String  @default("Asia/Ho_Chi_Minh") @db.VarChar(50)
-  isProfilePublic Boolean @default(true) @map("is_profile_public")
-
-  // Notifications
-  emailNotifications Boolean @default(true) @map("email_notifications")
-  pushNotifications  Boolean @default(true) @map("push_notifications")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([displayName], map: "idx_display_name")
-  @@index([isProfilePublic], map: "idx_is_public")
-  @@map("user_profiles")
+  @@unique([latitude, longitude], map: "uq_contexts_latitude_longitude")
+  @@unique([source, sourceRef], map: "uq_contexts_source_source_ref")
+  @@index([type], map: "idx_contexts_type")
+  @@index([category], map: "idx_contexts_category")
+  @@index([isReviewed], map: "idx_contexts_is_reviewed")
+  @@index([avgRating(sort: Desc)], map: "idx_contexts_avg_rating")
+  @@map("contexts")
 }
 
-// CHATBOT MODELS
-model Conversation {
-  id        String   @id @default(cuid())
-  userId    Int      @map("user_id")
-  title     String   @db.VarChar(255)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+model Article {
+  id            Int           @id @default(autoincrement())
+  slug          String        @unique @db.VarChar(255)
+  title         String        @db.VarChar(500)
+  content       String        @db.Text
+  type          ArticleType
+  status        ArticleStatus @default(DRAFT)
+  tier          ArticleTier   @default(TIER_0)
+  rankingScore  Float         @default(0.0) @map("ranking_score")
+  kvScore       KVScore       @default(LOW) @map("kv_score")
+  contextId     Int           @map("context_id")
+  authorId      Int           @map("author_id")
+  viewCount     Int           @default(0) @map("view_count")
+  saveCount     Int           @default(0) @map("save_count")
+  upvoteCount   Int           @default(0) @map("upvote_count")
+  isEvergreen   Boolean       @default(false) @map("is_evergreen")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  // Relations
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages Message[]
+  context           Context           @relation(fields: [contextId], references: [id], onDelete: Restrict)
+  author            User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  taxonomies        ArticleTaxonomy[]
+  suggestions       Suggestion[]
+  comments          Comment[]
+  versions          ArticleVersion[]
+  interactions      Interaction[]
+  collectionItems   CollectionItem[]
 
-  @@index([userId], map: "idx_conversation_user")
-  @@index([updatedAt], map: "idx_conversation_updated")
-  @@map("conversations")
+  @@index([authorId], map: "idx_articles_author_id")
+  @@index([contextId], map: "idx_articles_context_id")
+  @@index([status], map: "idx_articles_status")
+  @@index([type], map: "idx_articles_type")
+  @@index([tier], map: "idx_articles_tier")
+  @@index([rankingScore(sort: Desc)], map: "idx_articles_ranking_score")
+  @@index([status, tier, rankingScore(sort: Desc)], map: "idx_articles_feed")
+  @@index([kvScore], map: "idx_articles_kv_score")
+  @@map("articles")
 }
 
-model Message {
-  id             String   @id @default(cuid())
-  conversationId String   @map("conversation_id")
-  content        String   @db.Text
-  isUser         Boolean  @map("is_user")
-  createdAt      DateTime @default(now()) @map("created_at")
+model Taxonomy {
+  id          Int          @id @default(autoincrement())
+  type        TaxonomyType
+  name        String       @db.VarChar(100)
+  slug        String       @unique @db.VarChar(100)
+  parentId    Int?         @map("parent_id")
+  description String?      @db.Text
 
-  // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  parent   Taxonomy?         @relation("TaxonomyHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Taxonomy[]        @relation("TaxonomyHierarchy")
+  articles ArticleTaxonomy[]
 
-  @@index([conversationId], map: "idx_message_conversation")
-  @@index([createdAt], map: "idx_message_created")
-  @@map("messages")
+  @@index([type], map: "idx_taxonomies_type")
+  @@index([parentId], map: "idx_taxonomies_parent_id")
+  @@map("taxonomies")
 }
 
-// UNIFIED COLLECTION SYSTEM (Bookmarks & Series)
+model ArticleTaxonomy {
+  articleId   Int      @map("article_id")
+  taxonomyId  Int      @map("taxonomy_id")
+
+  article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  taxonomy Taxonomy @relation(fields: [taxonomyId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, taxonomyId])
+  @@index([taxonomyId], map: "idx_article_taxonomies_taxonomy_id")
+  @@map("article_taxonomies")
+}
+
+model Suggestion {
+  id         Int              @id @default(autoincrement())
+  authorId   Int              @map("author_id")
+  articleId  Int              @map("article_id")
+  content    String           @db.Text
+  status     SuggestionStatus @default(PENDING)
+  comment    String?          @db.Text
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  author  User    @relation("SuggestionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([authorId], map: "idx_suggestions_author_id")
+  @@index([articleId], map: "idx_suggestions_article_id")
+  @@index([status], map: "idx_suggestions_status")
+  @@map("suggestions")
+}
+
+model Comment {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  articleId   Int       @map("article_id")
+  parentId    Int?      @map("parent_id")
+  content     String    @db.Text
+  upvoteCount Int       @default(0) @map("upvote_count")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([articleId, createdAt], map: "idx_comments_article_created_at")
+  @@index([userId], map: "idx_comments_user_id")
+  @@index([parentId], map: "idx_comments_parent_id")
+  @@index([deletedAt], map: "idx_comments_deleted_at")
+  @@map("comments")
+}
+
+model ArticleVersion {
+  id            Int      @id @default(autoincrement())
+  articleId     Int      @map("article_id")
+  editorId      Int      @map("editor_id")
+  versionNumber Int      @map("version_number")
+  content       String   @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  editor  User    @relation("ArticleVersionEditor", fields: [editorId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, versionNumber], map: "uq_article_versions_article_version_number")
+  @@index([articleId], map: "idx_article_versions_article_id")
+  @@map("article_versions")
+}
+
+model Interaction {
+  id                 Int             @id @default(autoincrement())
+  userId             Int             @map("user_id")
+  articleId          Int             @map("article_id")
+  type               InteractionType
+  timeSpentMs        Int?            @map("time_spent_ms")
+  locationLat        Float?          @map("location_lat")
+  locationLong       Float?          @map("location_long")
+  scrollDepthPercent Int?            @map("scroll_depth_percent")
+  createdAt          DateTime        @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, type], map: "idx_interactions_article_type")
+  @@index([userId, type], map: "idx_interactions_user_type")
+  @@index([userId], map: "idx_interactions_user_id")
+  @@index([articleId], map: "idx_interactions_article_id")
+  @@index([type], map: "idx_interactions_type")
+  @@map("interactions")
+}
+
 model Collection {
   id          Int      @id @default(autoincrement())
   userId      Int      @map("user_id")
   title       String   @db.VarChar(255)
+  isPublic    Boolean  @default(false) @map("is_public")
   description String?  @db.Text
-  isPublic    Boolean  @default(false) @map("is_public") // false: private bookmark, true: public series
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   items CollectionItem[]
 
-  @@index([userId, isPublic], map: "idx_collection_user_public") // Tối ưu khi query series hoặc bookmark của user
-  @@index([userId], map: "idx_collection_user")
-  @@index([isPublic], map: "idx_collection_public")
+  @@index([userId, isPublic], map: "idx_collections_user_public")
+  @@index([userId], map: "idx_collections_user_id")
   @@map("collections")
 }
 
 model CollectionItem {
   id           Int      @id @default(autoincrement())
   collectionId Int      @map("collection_id")
-  articleId    Int?     @map("article_id")
+  articleId    Int      @map("article_id")
   contextId    Int?     @map("context_id")
+  addedAt      DateTime @default(now()) @map("added_at")
   order        Int      @default(0)
   notes        String?  @db.Text
-  createdAt    DateTime @default(now()) @map("created_at")
 
   collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  article    Article?   @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  article    Article    @relation(fields: [articleId], references: [id], onDelete: Cascade)
   context    Context?   @relation(fields: [contextId], references: [id], onDelete: SetNull)
 
-  @@index([collectionId, order], map: "idx_col_item_order") // Tối ưu lấy danh sách theo thứ tự
-  @@index([collectionId], map: "idx_collection_item_collection")
-  @@index([articleId], map: "idx_collection_item_article")
-  @@index([contextId], map: "idx_collection_item_context")
+  @@index([collectionId], map: "idx_collection_items_collection_id")
+  @@index([articleId], map: "idx_collection_items_article_id")
+  @@index([contextId], map: "idx_collection_items_context_id")
   @@map("collection_items")
 }
 
-// ENUMS
-enum AccountStatus {
-  PENDING_VERIFY @map("pending_verify")
-  ACTIVE         @map("active")
-  INACTIVE       @map("inactive")
-  SUSPENDED      @map("suspended")
-  BANNED         @map("banned")
-  DELETED        @map("deleted")
+model WalletTransaction {
+  id         Int                   @id @default(autoincrement())
+  userId     Int                   @map("user_id")
+  type       WalletTransactionType
+  currency   Currency
+  amount     Float
+  reasonCode String?               @map("reason_code") @db.VarChar(100)
+  refId      Int?                  @map("ref_id")
+  metadata   String?               @db.Text
+  createdAt  DateTime              @default(now()) @map("created_at")
 
-  @@map("account_status")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, currency], map: "idx_wallet_transactions_user_currency")
+  @@index([createdAt], map: "idx_wallet_transactions_created_at")
+  @@map("wallet_transactions")
 }
 
-enum UserRole {
-  USER      @map("user")
-  ADMIN     @map("admin")
-  MODERATOR @map("moderator")
+model Follow {
+  followingId Int      @map("following_id")
+  followerId  Int      @map("follower_id")
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  @@map("role")
+  following User @relation("FollowTarget", fields: [followingId], references: [id], onDelete: Cascade)
+  follower  User @relation("FollowSource", fields: [followerId], references: [id], onDelete: Cascade)
+
+  @@id([followingId, followerId])
+  @@index([followerId], map: "idx_follows_follower_id")
+  @@index([followingId], map: "idx_follows_following_id")
+  @@map("follows")
 }
 
-enum Gender {
-  MALE   @map("male")
-  FEMALE @map("female")
-  OTHER  @map("other")
-
-  @@map("gender")
-}
-
-enum ContextType {
-  PLACE  @map("place")
-  ENTITY @map("entity")
-  TOPIC  @map("topic")
-
-  @@map("context_type")
-}
-
-enum ArticleTier {
-  TIER_0_PENDING   @map("tier_0_pending")
-  TIER_1_DISCOVERY @map("tier_1_discovery")
-  TIER_2_GROWTH    @map("tier_2_growth")
-  TIER_3_VIRAL     @map("tier_3_viral")
-  ARCHIVED         @map("archived")
-
-  @@map("article_tier")
-}
-
-enum KVScore {
-  LOW    @map("low")
-  MEDIUM @map("medium")
-  HIGH   @map("high")
-
-  @@map("kv_score")
-}
-
-enum InteractionType {
-  VIEW     @map("view")
-  SAVE     @map("save")
-  SUGGEST  @map("suggest")
-  REPORT   @map("report")
-  UPVOTE   @map("upvote")
-  DOWNVOTE @map("downvote")
-
-  @@map("interaction_type")
-}
-
-enum SuggestionStatus {
-  PENDING  @map("pending")
-  ACCEPTED @map("accepted")
-  REJECTED @map("rejected")
-
-  @@map("suggestion_status")
-}
-
-enum TaxonomyType {
-  CATEGORY @map("category")
-  TAG      @map("tag")
-
-  @@map("taxonomy_type")
-}
-
-enum CurrencyType {
-  POINTS @map("points")
-  KNOW_U @map("know_u")
-  KNOW_G @map("know_g")
-
-  @@map("currency_type")
-}
-
-enum ArticleType {
-  POST   @map("post")
-  REVIEW @map("review")
-
-  @@map("article_type")
-}
-
-// KNOWLEDGE PLATFORM MODELS
-model Article {
-  id          Int         @id @default(autoincrement())
-  slug        String      @unique @db.VarChar(255)
-  title       String      @db.VarChar(500)
-  content     String      @db.Text
-  arweaveHash String?     @map("arweave_hash") @db.VarChar(100)
-  status      String      @default("PUBLISHED") @db.VarChar(20)
-  type        ArticleType @default(POST)
-
-  // Algorithmic Fields (MVP)
-  tier         ArticleTier @default(TIER_0_PENDING)
-  rankingScore Float       @default(0.0) @map("ranking_score")
-  kvScore      KVScore     @default(MEDIUM) @map("kv_score")
-  isEvergreen  Boolean     @default(false) @map("is_evergreen")
-
-  // Counters for BaseValue Calculation (Denormalized for Perf)
-  viewCount       Int @default(0) @map("view_count")
-  suggestionCount Int @default(0) @map("suggestion_count")
-  saveCount       Int @default(0) @map("save_count")
-  upvoteCount     Int @default(0) @map("upvote_count")
-
-  authorId  Int @map("author_id")
-  contextId Int @map("context_id") // Strict One-to-One connection with Context
-
-  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  context Context @relation(fields: [contextId], references: [id], onDelete: Cascade)
-
-  // Relations
-  taxonomies      ArticleTaxonomy[]
-  interactions    Interaction[]
-  suggestions     Suggestion[]
-  collectionItems CollectionItem[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([slug], map: "idx_article_slug")
-  @@index([authorId], map: "idx_article_author")
-  @@index([contextId], map: "idx_article_context")
-  @@index([status], map: "idx_article_status")
-  @@index([type], map: "idx_article_type")
-  @@index([tier], map: "idx_article_tier") // Critical for Traffic Pool
-  @@index([rankingScore(sort: Desc)], map: "idx_ranking_score") // Critical for Feed
-  @@index([status, tier, rankingScore(sort: Desc)], map: "idx_feed_optimized") // Tối ưu hóa truy vấn Feed: lấy bài PUBLISHED, theo TIER, sắp xếp điểm
-  @@index([kvScore], map: "idx_kv_score")
-  @@map("articles")
-}
-
-// UNIFIED TAXONOMY SYSTEM (Category & Tag)
-model Taxonomy {
-  id          Int          @id @default(autoincrement())
-  type        TaxonomyType
-  name        String       @db.VarChar(100)
-  slug        String       @unique @db.VarChar(100)
-  description String?      @db.Text
-  parentId    Int?         @map("parent_id")
-
-  parent   Taxonomy?  @relation("TaxonomyHierarchy", fields: [parentId], references: [id])
-  children Taxonomy[] @relation("TaxonomyHierarchy")
-
-  articles ArticleTaxonomy[]
-
-  @@index([type], map: "idx_taxonomy_type")
-  @@index([parentId], map: "idx_taxonomy_parent")
-  @@map("taxonomies")
-}
-
-model ArticleTaxonomy {
-  articleId  Int      @map("article_id")
-  taxonomyId Int      @map("taxonomy_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  taxonomy Taxonomy @relation(fields: [taxonomyId], references: [id], onDelete: Cascade)
-
-  @@id([articleId, taxonomyId])
-  @@index([taxonomyId], map: "idx_article_tax_taxonomy")
-  @@map("article_taxonomies")
-}
-
-model Context {
-  id          Int         @id @default(autoincrement())
-  type        ContextType
-  name        String      @db.VarChar(255)
-  description String?     @db.Text
-  category    String?     @db.VarChar(100)
-  source      String?     @db.VarChar(32)
-  sourceRef   String?     @map("source_ref") @db.VarChar(128)
-
-  // PLACE-only fields
-  address     String? @db.VarChar(500)
-  latitude    Float?
-  longitude   Float?
-  isReviewed  Boolean @default(false) @map("is_reviewed") // Could be managed via background task now
-  reviewCount Int     @default(0) @map("review_count")
-  avgRating   Float   @default(0.0) @map("avg_rating")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  articles        Article[]
-  collectionItems CollectionItem[]
-
-  @@unique([source, sourceRef], map: "uq_context_source_ref")
-  @@index([type], map: "idx_context_type")
-  @@index([latitude, longitude], map: "idx_context_coords")
-  @@index([category], map: "idx_context_category")
-  @@index([isReviewed], map: "idx_context_is_reviewed")
-  @@index([avgRating(sort: Desc)], map: "idx_context_avg_rating")
-  @@map("contexts")
-}
-
-// GAMIFICATION MODELS
 model Badge {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique @db.VarChar(100)
-  description String? @db.Text
-  iconUrl     String? @map("icon_url") @db.VarChar(500)
-  criteria    String? @db.Text // JSON or text description of how to earn
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  iconUrl     String?  @map("icon_url") @db.VarChar(500)
+  criteria    String?  @db.Text
 
   users UserBadge[]
 
@@ -458,85 +369,105 @@ model Badge {
 }
 
 model UserBadge {
-  userId    Int      @map("user_id")
   badgeId   Int      @map("badge_id")
+  userId    Int      @map("user_id")
   awardedAt DateTime @default(now()) @map("awarded_at")
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([userId, badgeId])
+  @@id([badgeId, userId])
   @@map("user_badges")
 }
 
-// UNIFIED WALLET / LEDGER
-model WalletTransaction {
-  id         Int          @id @default(autoincrement())
-  userId     Int          @map("user_id")
-  type       String       @db.VarChar(20) // EARN, SPEND, WITHDRAW, DEPOSIT
-  currency   CurrencyType
-  amount     Float
-  reasonCode String?      @map("reason_code") @db.VarChar(50)
-  refId      Int?         @map("ref_id")
-  metadata   String?      @db.Text // JSON extras
-  createdAt  DateTime     @default(now()) @map("created_at")
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  type      String   @db.VarChar(100)
+  content   String   @db.Text
+  isRead    Boolean  @default(false) @map("is_read")
+  refId     Int?     @map("ref_id")
+  createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, currency], map: "idx_wallet_tx_user_currency") // Tối ưu lấy LSGD theo loại tiền
-  @@index([userId], map: "idx_wallet_tx_user")
-  @@index([currency], map: "idx_wallet_tx_currency")
-  @@index([createdAt], map: "idx_wallet_tx_created")
-  @@map("wallet_transactions")
+  @@index([userId, isRead, createdAt], map: "idx_notifications_user_read_created_at")
+  @@map("notifications")
 }
 
-// Model Interaction: Capture signals
-model Interaction {
-  id        Int             @id @default(autoincrement())
-  userId    Int             @map("user_id")
-  articleId Int             @map("article_id")
-  type      InteractionType
-
-  // Implicit signals
-  timeSpentMs        Int? @map("time_spent_ms")
-  scrollDepthPercent Int? @map("scroll_depth_percent") // 0-100
-
-  // Integrity
-  locationLat  Float? @map("location_lat")
-  locationLong Float? @map("location_long")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
-
-  @@index([articleId, type], map: "idx_interaction_article_type") // Tối ưu đếm lượt Vote/View cho bài viết
-  @@index([userId, type], map: "idx_interaction_user_type") // Lọc thao tác nhanh cho user (đã Vote/Save chưa)
-  @@index([userId], map: "idx_interaction_user")
-  @@index([articleId], map: "idx_interaction_article")
-  @@index([type], map: "idx_interaction_type")
-  @@map("interactions")
+enum AccountStatus {
+  ACTIVE
+  PENDING_VERIFY
+  SUSPENDED
+  BANNED
 }
 
-// Model Suggestion: Core contribution unit
-model Suggestion {
-  id        Int              @id @default(autoincrement())
-  authorId  Int              @map("author_id")
-  articleId Int              @map("article_id")
-  content   String           @db.Text
-  status    SuggestionStatus @default(PENDING)
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
 
-  // Optional: Reason/Comment
-  comment String? @db.Text
+enum ArticleType {
+  POST
+  REVIEW
+}
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  FLAGGED
+  HIDDEN
+}
 
-  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+enum ArticleTier {
+  TIER_0
+  TIER_1
+  TIER_2
+  TIER_3
+}
 
-  @@index([authorId], map: "idx_suggestion_author")
-  @@index([articleId], map: "idx_suggestion_article")
-  @@index([status], map: "idx_suggestion_status")
-  @@map("suggestions")
+enum KVScore {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ContextType {
+  PLACE
+  ENTITY
+  TOPIC
+}
+
+enum TaxonomyType {
+  CATEGORY
+  TAG
+}
+
+enum InteractionType {
+  VIEW
+  SHARE
+  SAVE
+  UPVOTE
+  DOWNVOTE
+  REPORT
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum WalletTransactionType {
+  EARN
+  SPEND
+  DEPOSIT
+  WITHDRAW
+}
+
+enum Currency {
+  POINTS
+  KNOW_U
+  KNOW_G
 }

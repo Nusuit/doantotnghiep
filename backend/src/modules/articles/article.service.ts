@@ -38,7 +38,16 @@ export class ArticleService {
         if (input.contextId) {
             contextId = input.contextId;
         } else if (input.locationContext) {
-            const context = await prisma.context.create({
+            const existingContext = await prisma.context.findFirst({
+                where: {
+                    type: "PLACE",
+                    latitude: input.locationContext.latitude,
+                    longitude: input.locationContext.longitude,
+                },
+                select: { id: true },
+            });
+
+            const context = existingContext || await prisma.context.create({
                 data: {
                     type: 'PLACE',
                     name: input.locationContext.name,
