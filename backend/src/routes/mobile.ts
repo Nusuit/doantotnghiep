@@ -214,7 +214,7 @@ export function createMobileRouter() {
               }
             },
             take: 120,
-            orderBy: { createdAt: "desc" },
+            orderBy: { addedAt: "desc" },
           })
         : await prisma.context.findMany({
             where: {
@@ -324,7 +324,7 @@ export function createMobileRouter() {
                 },
                 include: { article: { include: { context: true } } },
                 take: 250,
-                orderBy: { createdAt: "desc" },
+                orderBy: { addedAt: "desc" },
               })
             : await prisma.context.findMany({
                 where: {
@@ -750,6 +750,7 @@ export function createMobileRouter() {
                slug: `imported-${ctx.id}-${Date.now()}`,
                title: `Imported Location: ${ctx.name}`,
                content: '',
+               type: 'POST',
                authorId: userId,
                contextId: ctx.id,
              }

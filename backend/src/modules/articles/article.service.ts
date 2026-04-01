@@ -1,11 +1,13 @@
 import { getPrisma } from "../../db/prisma";
+import { ArticleStatus, ArticleType } from "@prisma/client";
 
 export interface CreateArticleInput {
     title: string;
     content: string;
+    type?: ArticleType;
     categoryId: number;
     authorId: number;
-    status?: string;
+    status?: ArticleStatus;
     locationContext?: {
         name: string;
         address: string;
@@ -70,6 +72,7 @@ export class ArticleService {
                 slug: uniqueSlug,
                 title: input.title,
                 content: input.content,
+                type: input.type || 'POST',
                 status: input.status || 'PUBLISHED',
                 authorId: input.authorId,
                 contextId: contextId,
