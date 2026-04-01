@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
   // MapBox, // Dynamic import
   useMap,
   MapProvider,
   MapMarkers,
+  MAP_STYLES,
   type MapMarker,
   useGeolocation,
   useMapBounds,
@@ -71,7 +72,7 @@ const demoMarkers: MapMarker[] = [
 // Main map component with restaurant features
 const RestaurantMapDemo: React.FC = () => {
   const [selectedArticles, setSelectedArticles] = useState<{ id: number; title: string }[]>([]);
-  const { flyTo, mapRef, viewState } = useMap(); // Added viewState from context if available, or we track it via onMove (MapBox props)
+  const { flyTo, mapRef, viewState, setMapStyle } = useMap(); // Added viewState from context if available, or we track it via onMove (MapBox props)
   // Logic update: MapBox component in this project manages its own viewState via context?
   // Inspecting MapContainer showed it uses useMap(). So we can get viewState from useMap().
 
@@ -80,7 +81,18 @@ const RestaurantMapDemo: React.FC = () => {
 
   // Design States
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
-  const [activeStyle, setActiveStyle] = useState<MapStyle>("dark");
+  const [activeStyle, setActiveStyle] = useState<MapStyle>("custom");
+
+  // Sync activeStyle with map context
+  useEffect(() => {
+    const styleMap: Record<MapStyle, string> = {
+      custom: MAP_STYLES.CUSTOM,
+      streets: MAP_STYLES.STREETS,
+      satellite: MAP_STYLES.SATELLITE,
+      dark: MAP_STYLES.DARK,
+    };
+    setMapStyle(styleMap[activeStyle]);
+  }, [activeStyle]);
 
   // Data States
   // Replaced MapMarker[] with GeoJSON FeatureCollection
@@ -92,9 +104,10 @@ const RestaurantMapDemo: React.FC = () => {
   const [searchResultMarker, setSearchResultMarker] = useState<MapMarker | null>(null);
 
   const isClient = useIsClient();
+  const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 1. Viewport Data Fetching
-  const fetchPlacesInView = async () => {
+  const fetchPlacesInView = useCallback(async () => {
     if (!mapRef.current) return;
 
     const bounds = mapRef.current.getBounds();
@@ -113,37 +126,32 @@ const RestaurantMapDemo: React.FC = () => {
         (ctx) => typeof ctx.latitude === "number" && typeof ctx.longitude === "number"
       );
 
-      if (validContexts.length > 0) {
-        const features = validContexts.map((ctx) => ({
-          type: "Feature",
-          geometry: {
-            type: "Point",
-            coordinates: [ctx.longitude, ctx.latitude],
-          },
-          properties: {
-            id: ctx.id,
-            title: ctx.name,
-            description: ctx.description || ctx.address || "",
-            type: ctx.category || "place",
-          },
-        }));
+      const features = validContexts.map((ctx) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [ctx.longitude, ctx.latitude] },
+        properties: {
+          id: ctx.id,
+          title: ctx.name,
+          description: ctx.description || ctx.address || "",
+          type: ctx.category || "place",
+        },
+      }));
 
-        setMapFeatures({
-          type: "FeatureCollection",
-          features,
-        });
-      }
+      setMapFeatures({ type: "FeatureCollection", features });
     } catch (error) {
       console.error("Failed to fetch map data", error);
     }
-  };
+  }, [mapRef]);
 
-  // Initial Fetch on Mount (once map is ready)
+  // Debounced version – only fires 400ms after the user stops moving the map
+  const handleMoveEnd = useCallback(() => {
+    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+    fetchTimerRef.current = setTimeout(fetchPlacesInView, 400);
+  }, [fetchPlacesInView]);
+
+  // Initial fetch once map is ready
   useEffect(() => {
-    if (isClient && mapRef.current) {
-      // Wait a bit for map to be fully ready or just call it
-      fetchPlacesInView();
-    }
+    if (isClient && mapRef.current) fetchPlacesInView();
   }, [isClient, mapRef.current]);
 
   // Handle Map Click (Layer Interaction)
@@ -155,14 +163,6 @@ const RestaurantMapDemo: React.FC = () => {
       const clickedFeature = features[0];
       if (clickedFeature.layer.id === 'restaurants-point') {
         const props = clickedFeature.properties;
-        // Parse 'data' if it was stringified (Mapbox GL JS serializes complex objects in properties?)
-        // Actually usually we should store simple props. 
-        // Let's rely on flat properties for now.
-
-        // Construct marker object for LocationCard compatibility
-        // Note: properties values are JSON strings if they were objects? 
-        // No, Mapbox preserves simple types. 'data' object might be broken.
-        // Let's assume we use flat props for display.
 
         setSelectedMarker({
           id: props.id,
@@ -208,31 +208,13 @@ const RestaurantMapDemo: React.FC = () => {
             latitude: 10.8231,
             zoom: 12,
           }}
-          // Pass onClick handler handling layer interaction
           onClick={handleMapClick}
-        // Bind move end to fetching
-        // Note: MapBox component needs to expose onMoveEnd prop or we hook into it in a wrapper?
-        // Looking at MapBox.tsx, it passes ...style but not specific events clearly.
-        // Yet MapContainer renders <Map ... onMove={onMove} ...>
-        // We can't easily hook onMoveEnd unless MapBox accepts it.
-        // Let's assume MapBox accepts ...props or we need to Modify MapBox.
-        // Checking MapBox.tsx again... it creates MapProvider. 
-        // Wait, the Map instance is inside MapContainer.
-        // To get "moveend", we need access to the Map component props.
-        // I will assume for now I can pass `onMoveEnd` to MapBox and it propagates to MapContainer -> Map.
-        // If not, I will need to edit MapBox.tsx.
+          onMoveEnd={handleMoveEnd}
         >
-          {/* The Layers */}
+          {/* Layers */}
           <RestaurantsLayer data={mapFeatures} />
 
-          {/* Search Result Marker (Keep as React Component for single item special case? Or Layer?) 
-                Rule: "No JSX markers". 
-                Okay, let's treat search result as a separate Layer data source or just standard marker.
-                User Request: "Markers are data, not components". 
-                Exceptions usually made for "Selected" or "Drag" markers. 
-                Let's keep search result as marker for now to avoid over-engineering the search flow rewrite.
-            */}
-          {/* Search Result Marker */}
+          {/* Search result marker (single item – kept as React component intentionally) */}
           {searchResultMarker && (
             <MapMarkers markers={[searchResultMarker]} />
           )}

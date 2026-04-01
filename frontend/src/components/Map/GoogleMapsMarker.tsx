@@ -28,13 +28,13 @@ const GoogleMapsMarker: React.FC<GoogleMapsMarkerProps> = ({
         <div
           className="relative"
           style={{
-            filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))",
+            filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.5))",
           }}
         >
           {/* Pin Shape */}
           <svg
-            width="32"
-            height="40"
+            width="48"
+            height="60"
             viewBox="0 0 32 40"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -42,10 +42,12 @@ const GoogleMapsMarker: React.FC<GoogleMapsMarkerProps> = ({
             <path
               d="M16 0C7.16 0 0 7.16 0 16C0 28 16 40 16 40C16 40 32 28 32 16C32 7.16 24.84 0 16 0Z"
               fill={marker.color || "#EA4335"}
+              stroke="white"
+              strokeWidth="1"
             />
-            <circle cx="16" cy="16" r="8" fill="white" />
+            <circle cx="16" cy="16" r="10" fill="white" />
             {/* Icon inside */}
-            <circle cx="16" cy="16" r="4" fill={marker.color || "#EA4335"} />
+            <circle cx="16" cy="16" r="6" fill={marker.color || "#EA4335"} />
           </svg>
 
           {/* Hover Label */}
@@ -77,13 +79,15 @@ export const RestaurantMarker: React.FC<GoogleMapsMarkerProps> = ({
       }}
     >
       <div className="cursor-pointer transform transition-all hover:scale-110">
-        <svg width="28" height="36" viewBox="0 0 28 36" fill="none">
+        <svg width="44" height="56" viewBox="0 0 28 36" fill="none">
           <path
             d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z"
             fill="#EA4335"
-            filter="drop-shadow(0 2px 4px rgba(0,0,0,0.3))"
+            stroke="white"
+            strokeWidth="0.8"
+            filter="drop-shadow(0 4px 8px rgba(0,0,0,0.5))"
           />
-          <circle cx="14" cy="14" r="7" fill="white" />
+          <circle cx="14" cy="14" r="9" fill="white" />
           {/* Restaurant icon */}
           <path
             d="M11 8V12H13V8H15V12C15 12.55 15.45 13 16 13H17V20H15V22H13V20H11V13H12C12.55 13 13 12.55 13 12V8H11ZM9 8V13H10V15H8V8H9Z"
@@ -110,13 +114,15 @@ export const LandmarkMarker: React.FC<GoogleMapsMarkerProps> = ({
       }}
     >
       <div className="cursor-pointer transform transition-all hover:scale-110">
-        <svg width="28" height="36" viewBox="0 0 28 36" fill="none">
+        <svg width="44" height="56" viewBox="0 0 28 36" fill="none">
           <path
             d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z"
             fill="#4285F4"
-            filter="drop-shadow(0 2px 4px rgba(0,0,0,0.3))"
+            stroke="white"
+            strokeWidth="0.8"
+            filter="drop-shadow(0 4px 8px rgba(0,0,0,0.5))"
           />
-          <circle cx="14" cy="14" r="7" fill="white" />
+          <circle cx="14" cy="14" r="9" fill="white" />
           {/* Building icon */}
           <path
             d="M10 8H12V10H10V8ZM13 8H15V10H13V8ZM16 8H18V10H16V8ZM10 11H12V13H10V11ZM13 11H15V13H13V11ZM16 11H18V13H16V11ZM10 14H12V16H10V14ZM13 14H15V16H13V14ZM16 14H18V16H16V14ZM8 17H20V20H8V17Z"
@@ -143,13 +149,15 @@ export const ShoppingMarker: React.FC<GoogleMapsMarkerProps> = ({
       }}
     >
       <div className="cursor-pointer transform transition-all hover:scale-110">
-        <svg width="28" height="36" viewBox="0 0 28 36" fill="none">
+        <svg width="44" height="56" viewBox="0 0 28 36" fill="none">
           <path
             d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z"
             fill="#34A853"
-            filter="drop-shadow(0 2px 4px rgba(0,0,0,0.3))"
+            stroke="white"
+            strokeWidth="0.8"
+            filter="drop-shadow(0 4px 8px rgba(0,0,0,0.5))"
           />
-          <circle cx="14" cy="14" r="7" fill="white" />
+          <circle cx="14" cy="14" r="9" fill="white" />
           {/* Shopping bag icon */}
           <path
             d="M16 8V7C16 5.9 15.1 5 14 5S12 5.9 12 7V8H10C9.45 8 9 8.45 9 9V19C9 19.55 9.45 20 10 20H18C18.55 20 19 19.55 19 19V9C19 8.45 18.55 8 18 8H16ZM14 6C14.55 6 15 6.45 15 7V8H13V7C13 6.45 13.45 6 14 6ZM17 10V12H16V10H17ZM12 10V12H11V10H12Z"

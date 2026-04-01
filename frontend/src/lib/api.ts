@@ -70,6 +70,10 @@ export const api = {
         resendEmailOtp: async (email: string) => {
             const { data } = await apiClient.post('/auth/resend-email-otp', { email });
             return data.data;
+        },
+        completeOnboarding: async (interests: string[]) => {
+            const { data } = await apiClient.post('/auth/complete-onboarding', { interests });
+            return data.data;
         }
     },
     posts: {

@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 // Define protected paths
-const protectedPaths = ['/app'];
+const protectedPaths = ['/app', '/onboarding'];
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;

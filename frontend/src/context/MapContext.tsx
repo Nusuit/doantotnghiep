@@ -21,6 +21,7 @@ export interface MapMarker {
   color?: string;
   type?: string;
   image?: string;
+  savedStatus?: "TO_VISIT" | "VISITED" | "FAVORITE" | "AVOID";
 }
 
 export interface MapPopup {
@@ -85,6 +86,7 @@ export const useMap = () => {
 
 // Map styles presets
 export const MAP_STYLES = {
+  CUSTOM: process.env.NEXT_PUBLIC_MAPBOX_STYLE_URL || "mapbox://styles/hoangdung178/cmmj93wsl00pw01qz4z0x3v91",
   STANDARD: "mapbox://styles/mapbox/standard",
   STREETS: "mapbox://styles/mapbox/streets-v12",
   LIGHT: "mapbox://styles/mapbox/light-v11",
@@ -106,7 +108,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({
     latitude: 10.8231,
     zoom: 11,
   },
-  initialMapStyle = MAP_STYLES.STREETS,
+  initialMapStyle = MAP_STYLES.CUSTOM,
 }) => {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);

@@ -29,6 +29,9 @@ export const Header = () => {
     // Mock Balances (Until we have real balance in SessionUser)
     const balanceU = user?.balance_u || 0;
     const balanceG = user?.balance_g || 0;
+    const numberFormatter = new Intl.NumberFormat("en-US", {
+        maximumFractionDigits: 0,
+    });
 
     // Close notifications when clicking outside
     useEffect(() => {
@@ -193,11 +196,11 @@ export const Header = () => {
                         {/* Token Balances Row */}
                         <div className="flex items-center gap-2 text-[10px] font-mono leading-none mb-0.5">
                             <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold">
-                                {balanceU.toLocaleString()} U
+                                {numberFormatter.format(balanceU)} U
                             </span>
                             <span className="text-gray-300 dark:text-gray-600">|</span>
                             <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold">
-                                {balanceG.toFixed(0)} G
+                                {numberFormatter.format(balanceG)} G
                             </span>
                         </div>
 

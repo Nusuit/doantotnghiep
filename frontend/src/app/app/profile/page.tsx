@@ -113,7 +113,7 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6 animate-fade-in pb-20">
+        <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-20">
 
             {/* 1. HERO IDENTITY SECTION (Full Width) */}
             <div className="relative rounded-3xl bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-[0_0_20px_-5px_rgba(79,70,229,0.1)] overflow-hidden transition-all duration-500">
@@ -205,6 +205,12 @@ export default function ProfilePage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
+                                            onClick={() => router.push('/app/wallet')}
+                                            className="px-4 py-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">account_balance_wallet</span> My Wallet
+                                        </button>
+                                        <button
                                             onClick={() => router.push('/app/settings')}
                                             className="px-4 py-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-2"
                                         >
@@ -280,143 +286,92 @@ export default function ProfilePage() {
                 </div>
             </div>
 
-            {/* 2. TOKEN ASSETS ROW (Compact & Optimized Layout) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                {/* --- CARD A: KNOW-U (Utility) --- */}
-                <div
-                    onClick={() => setShowWalletAnalytics(true)}
-                    className="group relative rounded-2xl bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 p-5 cursor-pointer hover:border-blue-500/30 transition-all duration-300 shadow-sm hover:shadow-md flex items-stretch"
-                >
-                    {/* Left Side: Main Info & Identity */}
-                    <div className="flex-1 flex flex-col justify-between pr-4">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
-                                    <span className="material-symbols-outlined text-xl text-blue-500 dark:text-blue-400">bolt</span>
-                                </div>
-                                <div>
-                                    <div className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 mb-0.5">Utility Token</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Available Balance</div>
-                                </div>
-                            </div>
+            {/* 2-COLUMN LAYOUT: Sidebar + Main Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                
+                {/* LEFT SIDEBAR */}
+                <div className="lg:col-span-1 space-y-4">
+                    
+                    {/* Card 1: Utility */}
+                    <div 
+                        onClick={() => setShowWalletAnalytics(true)}
+                        className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-blue-500/30 cursor-pointer transition-all shadow-sm group"
+                    >
+                        <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                            <span className="material-symbols-outlined text-2xl">bolt</span>
                         </div>
-
-                        <div className="mt-4">
-                            <h2 className="text-3xl font-mono font-bold text-gray-900 dark:text-white tracking-tight leading-none mb-2">
-                                1,240 <span className="text-lg text-gray-400 dark:text-gray-500 font-medium">U</span>
-                            </h2>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/10 flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[12px]">trending_up</span> +12.5%
-                                </span>
-                                <span className="text-[10px] text-gray-500">this week</span>
+                        <div className="flex-1">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Utility</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">{profileUser.balance_u || 1240}</span>
+                                <span className="text-xs text-gray-400">U</span>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Vertical Divider */}
-                    <div className="w-px bg-gradient-to-b from-transparent via-gray-200 dark:via-white/10 to-transparent mx-2"></div>
-
-                    {/* Right Side: Stats Stack (Compact) */}
-                    <div className="flex flex-col justify-center gap-3 min-w-[100px]">
-                        <div className="text-right">
-                            <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Claimable</div>
-                            <div className="text-sm font-mono font-bold text-green-600 dark:text-green-400 leading-none">+120 U</div>
                         </div>
                         <div className="text-right">
-                            <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Pending</div>
-                            <div className="text-sm font-mono font-bold text-gray-900 dark:text-white leading-none">450 U</div>
-                        </div>
-                        <div className="text-right relative group/tooltip">
-                            <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5 flex items-center justify-end gap-1 cursor-help">
-                                Locked <span className="material-symbols-outlined text-[10px]">info</span>
-                            </div>
-                            <div className="text-sm font-mono font-bold text-yellow-600 dark:text-yellow-500 leading-none">75 U</div>
-                            <ProfileTooltip text="Tokens temporarily locked in pending suggestions or disputes." />
-                        </div>
-                    </div>
-                </div>
-
-                {/* --- CARD B: KNOW-G (Governance) --- */}
-                <div
-                    onClick={() => setShowGovAnalytics(true)}
-                    className="group relative rounded-2xl bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 p-5 cursor-pointer hover:border-purple-500/30 transition-all duration-300 shadow-sm hover:shadow-md flex items-stretch"
-                >
-                    <div className="flex-1 flex flex-col justify-between pr-4">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
-                                    <span className="material-symbols-outlined text-xl text-purple-500 dark:text-purple-400">token</span>
-                                </div>
-                                <div>
-                                    <div className="text-[10px] font-bold uppercase tracking-widest text-purple-500 dark:text-purple-400 mb-0.5">Governance Token</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Available Balance</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-4">
-                            <h2 className="text-3xl font-mono font-bold text-gray-900 dark:text-white tracking-tight leading-none mb-2">
-                                1,500 <span className="text-lg text-gray-400 dark:text-gray-500 font-medium">G</span>
-                            </h2>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-gray-500 font-mono">
-                                    ≈ $1,050.00 USD
-                                </span>
-                            </div>
+                            <span className="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 px-2 py-1 rounded">+12%</span>
                         </div>
                     </div>
 
-                    {/* Vertical Divider */}
-                    <div className="w-px bg-gradient-to-b from-transparent via-gray-200 dark:via-white/10 to-transparent mx-2"></div>
-
-                    {/* Right Side: Stats Stack (Compact) */}
-                    <div className="flex flex-col justify-center gap-3 min-w-[100px]">
+                    {/* Card 2: Governance */}
+                    <div 
+                        onClick={() => setShowGovAnalytics(true)}
+                        className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-purple-500/30 cursor-pointer transition-all shadow-sm group"
+                    >
+                        <div className="w-12 h-12 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                            <span className="material-symbols-outlined text-2xl">token</span>
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Governance</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">{profileUser.balance_g || 1500}</span>
+                                <span className="text-xs text-gray-400">G</span>
+                            </div>
+                        </div>
                         <div className="text-right">
-                            <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Yield</div>
-                            <div className="text-sm font-mono font-bold text-green-600 dark:text-green-400 leading-none">+12.4 G</div>
-                        </div>
-
-                        <div className="text-right relative group/tooltip">
-                            <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5 flex items-center justify-end gap-1 cursor-help">
-                                Staked <span className="material-symbols-outlined text-[10px]">info</span>
-                            </div>
-                            <div className="text-sm font-mono font-bold text-gray-900 dark:text-white leading-none">3,000 G</div>
-                            <ProfileTooltip text="KNOW-G locked in the Governance contract to earn Yield." />
-                        </div>
-
-                        <div className="text-right relative group/tooltip">
-                            <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5 flex items-center justify-end gap-1 cursor-help">
-                                Power <span className="material-symbols-outlined text-[10px]">info</span>
-                            </div>
-                            <div className="text-sm font-mono font-bold text-blue-500 dark:text-blue-400 leading-none">5.7k VP</div>
-                            <ProfileTooltip text="Your voting influence (Stake × Multiplier)." />
+                            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded">5.7k VP</span>
                         </div>
                     </div>
+
+                    {/* Card 3: Reputation */}
+                    <div className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl p-5 flex items-center gap-4 shadow-sm group">
+                        <div className="w-12 h-12 rounded-full bg-yellow-50 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 dark:text-yellow-400 group-hover:rotate-12 transition-transform">
+                            <span className="material-symbols-outlined text-2xl">workspace_premium</span>
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Reputation</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">850</span>
+                                <span className="text-xs text-gray-400">KS</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] font-bold text-yellow-700 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-500/10 px-2 py-1 rounded">Scholar</span>
+                        </div>
+                    </div>
+
                 </div>
 
-            </div>
-
-            {/* 3. CONTENT HISTORY (Full Width) */}
-            <div className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden min-h-[400px]">
-                <div className="flex border-b border-gray-200 dark:border-gray-700">
-                    {['contributions', 'suggestions', 'votes', 'proposals', 'reservations'].map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab as any)}
-                            className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ${activeTab === tab
-                                ? 'text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500 dark:border-cyan-400 bg-cyan-50 dark:bg-white/5'
-                                : 'text-gray-500'
-                                }`}
-                        >
-                            {tab === 'reservations' ? 'MY RESERVATIONS' : tab}
-                        </button>
-                    ))}
-                </div>
-                <div>
-                    <div className="overflow-visible min-h-[200px]">
-                        {/* Filter Tabs for Contributions */}
+                {/* RIGHT MAIN CONTENT */}
+                <div className="lg:col-span-3">
+                    
+                    {/* CONTENT HISTORY */}
+                    <div className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl overflow-visible min-h-[400px]">
+                        <div className="flex border-b border-gray-200 dark:border-gray-700">
+                            {['contributions', 'suggestions', 'votes', 'proposals', 'reservations'].map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab as any)}
+                                    className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ${activeTab === tab
+                                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white bg-gray-100 dark:bg-white/5'
+                                        : 'text-gray-500'
+                                        }`}
+                                >
+                                    {tab === 'reservations' ? 'MY RESERVATIONS' : tab}
+                                </button>
+                            ))}
+                        </div>
+                        <div>
+                            <div className="overflow-visible min-h-[200px]">{/* Filter Tabs for Contributions */}
                         {activeTab === 'contributions' && (
                             <div className="px-4 pt-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-gray-100 dark:border-gray-800/50">
                                 {[
@@ -459,7 +414,7 @@ export default function ProfilePage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-center">
-                                                <span className="font-mono font-bold text-orange-600 dark:text-orange-500 text-base border border-orange-200 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-500/10 px-3 py-1 rounded-md">
+                                                <span className="font-mono font-bold text-cyan-600 dark:text-cyan-500 text-base border border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/10 px-3 py-1 rounded-md">
                                                     {res.timeLeft}
                                                 </span>
                                             </td>
@@ -504,7 +459,7 @@ export default function ProfilePage() {
                                                     {item.type === 'contribution' && (
                                                         <div title={item.content_type === 'premium' ? 'Premium Content' : item.visibility === 'private' ? 'Private Draft' : 'Public Content'}>
                                                             {item.content_type === 'premium' ? (
-                                                                <span className="material-symbols-outlined text-purple-500 dark:text-purple-400 drop-shadow-[0_0_8px_rgba(192,132,252,0.5)]">diamond</span>
+                                                                <span className="material-symbols-outlined text-purple-500 dark:text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">diamond</span>
                                                             ) : item.visibility === 'private' ? (
                                                                 <span className="material-symbols-outlined text-gray-400 dark:text-gray-500">lock</span>
                                                             ) : (
@@ -514,7 +469,7 @@ export default function ProfilePage() {
                                                     )}
                                                     {item.type === 'proposal' && (
                                                         <div>
-                                                            <span className="material-symbols-outlined text-orange-500 dark:text-orange-400">campaign</span>
+                                                            <span className="material-symbols-outlined text-cyan-500 dark:text-cyan-400">campaign</span>
                                                         </div>
                                                     )}
                                                     <div className="flex flex-col">
@@ -535,7 +490,7 @@ export default function ProfilePage() {
                                                 <span className={`px-2 py-1 rounded text-xs font-bold ${item.status === 'Approved' || item.status === 'Active' || item.status === 'Passed' ? 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400' :
                                                     item.status === 'Pending' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' :
                                                         item.status === 'Draft' ? 'bg-gray-200 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400' :
-                                                            item.status.includes('Voted') ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400' :
+                                                            item.status.includes('Voted') ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' :
                                                                 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300'
                                                     }`}>
                                                     {item.status}
@@ -544,11 +499,11 @@ export default function ProfilePage() {
                                             <td className="px-4 py-4 text-right font-mono">
                                                 {item.content_type === 'premium' ? (
                                                     <div className="flex flex-col items-end">
-                                                        <span className="text-yellow-600 dark:text-yellow-400 font-bold">{item.reward}</span>
+                                                        <span className="text-green-600 dark:text-green-400 font-bold">{item.reward}</span>
                                                         <span className="text-[10px] text-gray-500 dark:text-gray-400">{item.unlocks} unlocks</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-cyan-600 dark:text-cyan-400">{item.reward}</span>
+                                                    <span className="text-green-600 dark:text-green-400">{item.reward}</span>
                                                 )}
                                             </td>
                                             <td className="px-2 py-4 text-right relative">
@@ -582,7 +537,7 @@ export default function ProfilePage() {
                                                                                 {/* Standard Public */}
                                                                                 <button
                                                                                     onClick={() => handleUpgradeClick(item.id)}
-                                                                                    className="w-full text-left px-4 py-3 text-xs font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 flex items-center gap-2 transition-colors"
+                                                                                    className="w-full text-left px-4 py-3 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center gap-2 transition-colors"
                                                                                 >
                                                                                     <span className="material-symbols-outlined text-sm">diamond</span> Upgrade to Premium
                                                                                 </button>
@@ -646,6 +601,10 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </div>
+                    
+                </div>
+
+            </div>
 
             {/* MODALS using Imported Components */}
             <WalletAnalyticsModal
@@ -666,7 +625,7 @@ export default function ProfilePage() {
                     <div className="bg-white dark:bg-dark-surface p-6 rounded-2xl w-full max-w-md border border-gray-200 dark:border-gray-700 shadow-2xl animate-fade-in-up">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <span className="material-symbols-outlined text-purple-500">diamond</span>
+                                <span className="material-symbols-outlined text-blue-500">diamond</span>
                                 Upgrade to Premium
                             </h3>
                             <button onClick={closeUpgradeModal} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
@@ -679,15 +638,15 @@ export default function ProfilePage() {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Unlock Price (KNOW-U)</label>
-                                <input type="number" className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="e.g. 50" />
+                                <input type="number" className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="e.g. 50" />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Public Hint (Teaser)</label>
-                                <textarea className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none h-24 resize-none transition-all" placeholder="Write a compelling summary visible to everyone..."></textarea>
+                                <textarea className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none transition-all" placeholder="Write a compelling summary visible to everyone..."></textarea>
                             </div>
                             <div className="flex gap-3 justify-end mt-6">
                                 <button onClick={closeUpgradeModal} className="px-4 py-2 text-gray-500 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">Cancel</button>
-                                <button onClick={confirmUpgrade} className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-lg shadow-purple-500/30 transition-all transform hover:scale-105">Confirm Upgrade</button>
+                                <button onClick={confirmUpgrade} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-lg shadow-blue-500/30 transition-all transform hover:scale-105">Confirm Upgrade</button>
                             </div>
                         </div>
                     </div>
