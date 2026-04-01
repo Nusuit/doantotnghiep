@@ -1,73 +1,129 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, TaxonomyType } from "@prisma/client";
 import bcrypt from "bcryptjs";
+
 const prisma = new PrismaClient();
 
-async function main() {
-  const email = "admin@example.com";
-  const password = "Admin123!";
+async function upsertUser(params: {
+  email: string;
+  passwordHash: string;
+  role?: "ADMIN" | "USER" | "MODERATOR";
+  displayName: string;
+  avatarUrl?: string;
+  reputationScore?: number;
+  knowUBalance?: number;
+  knowGBalance?: number;
+  isEmailVerified?: boolean;
+  accountStatus?: "ACTIVE" | "PENDING_VERIFY" | "SUSPENDED" | "BANNED";
+}) {
+  const existing = await prisma.user.findUnique({
+    where: { email: params.email },
+    select: { id: true },
+  });
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  if (existing) {
+    return prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        role: params.role ?? "USER",
+        reputationScore: params.reputationScore ?? 0,
+        knowUBalance: params.knowUBalance ?? 0,
+        knowGBalance: params.knowGBalance ?? 0,
+        accountStatus: params.accountStatus ?? "ACTIVE",
+        security: {
+          upsert: {
+            create: {
+              passwordHash: params.passwordHash,
+              isEmailVerified: params.isEmailVerified ?? true,
+            },
+            update: {
+              passwordHash: params.passwordHash,
+              isEmailVerified: params.isEmailVerified ?? true,
+            },
+          },
+        },
+        profile: {
+          upsert: {
+            create: {
+              displayName: params.displayName,
+              avatarUrl: params.avatarUrl ?? null,
+            },
+            update: {
+              displayName: params.displayName,
+              avatarUrl: params.avatarUrl ?? null,
+            },
+          },
+        },
+      },
+      select: { id: true, email: true },
+    });
+  }
 
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: {},
-    create: {
-      email,
-      passwordHash,
-      role: "ADMIN",
-      isEmailVerified: true,
+  return prisma.user.create({
+    data: {
+      email: params.email,
+      role: params.role ?? "USER",
+      accountStatus: params.accountStatus ?? "ACTIVE",
+      reputationScore: params.reputationScore ?? 0,
+      knowUBalance: params.knowUBalance ?? 0,
+      knowGBalance: params.knowGBalance ?? 0,
+      security: {
+        create: {
+          passwordHash: params.passwordHash,
+          isEmailVerified: params.isEmailVerified ?? true,
+        },
+      },
       profile: {
         create: {
-          displayName: "Admin",
+          displayName: params.displayName,
+          avatarUrl: params.avatarUrl ?? null,
         },
       },
     },
     select: { id: true, email: true },
   });
+}
 
-  // Seed Clone Accounts (Realistic Vietnamese Users)
+async function main() {
+  const passwordHash = await bcrypt.hash("Admin123!", 12);
+
+  const user = await upsertUser({
+    email: "admin@example.com",
+    passwordHash,
+    role: "ADMIN",
+    displayName: "Admin",
+    isEmailVerified: true,
+    accountStatus: "ACTIVE",
+  });
+
   const cloneUsers = [
-    { name: "Ngân Ngu Ngơ", email: "ngan.ngungo@example.com", avatar: "https://i.pravatar.cc/150?u=1", score: 15000, knowU: 500, knowG: 120.5 },
-    { name: "Huyền Nguyễn", email: "huyen.nguyen@example.com", avatar: "https://i.pravatar.cc/150?u=2", score: 12400, knowU: 450, knowG: 80.0 },
-    { name: "Hân Phan", email: "han.phan@example.com", avatar: "https://i.pravatar.cc/150?u=3", score: 11200, knowU: 300, knowG: 65.5 },
+    { name: "Ngan Ngu Ngo", email: "ngan.ngungo@example.com", avatar: "https://i.pravatar.cc/150?u=1", score: 15000, knowU: 500, knowG: 120.5 },
+    { name: "Huyen Nguyen", email: "huyen.nguyen@example.com", avatar: "https://i.pravatar.cc/150?u=2", score: 12400, knowU: 450, knowG: 80.0 },
+    { name: "Han Phan", email: "han.phan@example.com", avatar: "https://i.pravatar.cc/150?u=3", score: 11200, knowU: 300, knowG: 65.5 },
     { name: "Luis Mel", email: "luis.mel@example.com", avatar: "https://i.pravatar.cc/150?u=4", score: 9800, knowU: 250, knowG: 45.0 },
     { name: "YasuA", email: "yasua@example.com", avatar: "https://i.pravatar.cc/150?u=5", score: 8500, knowU: 200, knowG: 30.0 },
-    { name: "Bé Bựa", email: "be.bua@example.com", avatar: "https://i.pravatar.cc/150?u=6", score: 7200, knowU: 180, knowG: 25.5 },
-    { name: "Anh Thư", email: "anh.thu@example.com", avatar: "https://i.pravatar.cc/150?u=7", score: 6500, knowU: 150, knowG: 20.0 },
-    { name: "Thu Phạm", email: "thu.pham@example.com", avatar: "https://i.pravatar.cc/150?u=8", score: 5400, knowU: 100, knowG: 15.0 },
-    { name: "Hoàng Giáp", email: "hoang.giap@example.com", avatar: "https://i.pravatar.cc/150?u=9", score: 4300, knowU: 80, knowG: 10.0 },
-    { name: "Hội Nguyễn", email: "hoi.nguyen@example.com", avatar: "https://i.pravatar.cc/150?u=10", score: 3200, knowU: 50, knowG: 5.0 },
-    { name: "Tâm Phan", email: "tam.phan@example.com", avatar: "https://i.pravatar.cc/150?u=11", score: 2100, knowU: 30, knowG: 2.0 },
+    { name: "Be Bua", email: "be.bua@example.com", avatar: "https://i.pravatar.cc/150?u=6", score: 7200, knowU: 180, knowG: 25.5 },
+    { name: "Anh Thu", email: "anh.thu@example.com", avatar: "https://i.pravatar.cc/150?u=7", score: 6500, knowU: 150, knowG: 20.0 },
+    { name: "Thu Pham", email: "thu.pham@example.com", avatar: "https://i.pravatar.cc/150?u=8", score: 5400, knowU: 100, knowG: 15.0 },
+    { name: "Hoang Giap", email: "hoang.giap@example.com", avatar: "https://i.pravatar.cc/150?u=9", score: 4300, knowU: 80, knowG: 10.0 },
+    { name: "Hoi Nguyen", email: "hoi.nguyen@example.com", avatar: "https://i.pravatar.cc/150?u=10", score: 3200, knowU: 50, knowG: 5.0 },
+    { name: "Tam Phan", email: "tam.phan@example.com", avatar: "https://i.pravatar.cc/150?u=11", score: 2100, knowU: 30, knowG: 2.0 },
   ];
 
   for (const u of cloneUsers) {
-    await prisma.user.upsert({
-      where: { email: u.email },
-      update: {
-        reputationScore: u.score,
-        knowUBalance: u.knowU,
-        knowGBalance: u.knowG,
-      },
-      create: {
-        email: u.email,
-        passwordHash, // Uses same password "Admin123!" for easier testing
-        role: "USER",
-        isEmailVerified: true,
-        reputationScore: u.score,
-        knowUBalance: u.knowU,
-        knowGBalance: u.knowG,
-        profile: {
-          create: {
-            displayName: u.name,
-            avatarUrl: u.avatar,
-          },
-        },
-      },
+    await upsertUser({
+      email: u.email,
+      passwordHash,
+      role: "USER",
+      displayName: u.name,
+      avatarUrl: u.avatar,
+      reputationScore: u.score,
+      knowUBalance: u.knowU,
+      knowGBalance: u.knowG,
+      isEmailVerified: true,
+      accountStatus: "ACTIVE",
     });
   }
 
-
-  // Seed MVP Categories (stable slugs)
   const categories = [
     { slug: "PLACE_BASED_KNOWLEDGE", name: "Place-based Knowledge" },
     { slug: "CULTURE_HISTORY", name: "Culture & History" },
@@ -77,52 +133,52 @@ async function main() {
     { slug: "ABSTRACT_TOPIC", name: "Abstract Topic" },
   ];
 
-  for (const c of categories) {
-    await prisma.category.upsert({
-      where: { slug: c.slug },
-      update: { name: c.name },
-      create: { slug: c.slug, name: c.name },
+  for (const category of categories) {
+    await prisma.taxonomy.upsert({
+      where: { slug: category.slug },
+      update: { name: category.name, type: TaxonomyType.CATEGORY },
+      create: { slug: category.slug, name: category.name, type: TaxonomyType.CATEGORY },
     });
   }
 
-  // Seed a few PLACE contexts for the Map demo (restaurants are an alias)
-  const restaurants = [
+  const places = [
     {
-      name: "Phở Hòa Pasteur",
-      description: "Phở truyền thống",
-      address: "Pasteur, Quận 1, TP.HCM",
+      name: "Pho Hoa Pasteur",
+      description: "Pho truyen thong",
+      address: "Pasteur, Quan 1, TP.HCM",
       latitude: 10.7769,
       longitude: 106.6917,
       category: "pho",
-      priceLevel: 2,
+      source: "seed",
+      sourceRef: "seed:pho-hoa-pasteur",
     },
     {
-      name: "Bánh mì Huỳnh Hoa",
-      description: "Bánh mì nổi tiếng",
-      address: "Lê Thị Riêng, Quận 1, TP.HCM",
+      name: "Banh mi Huynh Hoa",
+      description: "Banh mi noi tieng",
+      address: "Le Thi Rieng, Quan 1, TP.HCM",
       latitude: 10.7701,
       longitude: 106.6894,
       category: "banh-mi",
-      priceLevel: 2,
+      source: "seed",
+      sourceRef: "seed:banh-mi-huynh-hoa",
     },
     {
-      name: "Cơm tấm Sườn Nướng",
-      description: "Cơm tấm truyền thống",
-      address: "Quận 3, TP.HCM",
+      name: "Com tam Suon Nuong",
+      description: "Com tam truyen thong",
+      address: "Quan 3, TP.HCM",
       latitude: 10.7824,
       longitude: 106.6841,
       category: "com-tam",
-      priceLevel: 1,
+      source: "seed",
+      sourceRef: "seed:com-tam-suon-nuong",
     },
   ];
 
-  for (const r of restaurants) {
+  for (const place of places) {
     const exists = await prisma.context.findFirst({
       where: {
-        type: "PLACE",
-        name: r.name,
-        latitude: r.latitude,
-        longitude: r.longitude,
+        latitude: place.latitude,
+        longitude: place.longitude,
       },
       select: { id: true },
     });
@@ -131,11 +187,14 @@ async function main() {
       await prisma.context.create({
         data: {
           type: "PLACE",
-          name: r.name,
-          description: r.description,
-          address: r.address,
-          latitude: r.latitude,
-          longitude: r.longitude,
+          name: place.name,
+          description: place.description,
+          address: place.address,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          category: place.category,
+          source: place.source,
+          sourceRef: place.sourceRef,
         },
       });
     }
@@ -149,4 +208,4 @@ main()
     console.error(e);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => prisma.$disconnect());

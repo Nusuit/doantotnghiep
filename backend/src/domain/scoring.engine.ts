@@ -1,16 +1,15 @@
 
 export enum ArticleTier {
-    TIER_0_PENDING = 'tier_0_pending',
-    TIER_1_DISCOVERY = 'tier_1_discovery',
-    TIER_2_GROWTH = 'tier_2_growth',
-    TIER_3_VIRAL = 'tier_3_viral',
-    ARCHIVED = 'archived'
+    TIER_0 = 'TIER_0',
+    TIER_1 = 'TIER_1',
+    TIER_2 = 'TIER_2',
+    TIER_3 = 'TIER_3'
 }
 
 export enum KVScore {
-    LOW = 'low',
-    MEDIUM = 'medium',
-    HIGH = 'high'
+    LOW = 'LOW',
+    MEDIUM = 'MEDIUM',
+    HIGH = 'HIGH'
 }
 
 export interface ArticleData {
@@ -46,9 +45,9 @@ export class ScoringEngine {
 
         // Base score depends on Tier to give initial visibility
         let tierBase = 10; // Tier 0
-        if (article.tier === ArticleTier.TIER_1_DISCOVERY) tierBase = 20;
-        else if (article.tier === ArticleTier.TIER_2_GROWTH) tierBase = 40;
-        else if (article.tier === ArticleTier.TIER_3_VIRAL) tierBase = 80;
+        if (article.tier === ArticleTier.TIER_1) tierBase = 20;
+        else if (article.tier === ArticleTier.TIER_2) tierBase = 40;
+        else if (article.tier === ArticleTier.TIER_3) tierBase = 80;
 
         // Logarithmic containment: log10 of signal prevents slight virality from dominating.
         // Multiplier 10 scales it to readable range (0-100+)

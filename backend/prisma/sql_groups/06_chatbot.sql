@@ -1,0 +1,5 @@
+-- Legacy note:
+-- `conversations` and `messages` were intentionally removed from the canonical
+-- Prisma/database contract in the 2026-03-23 refactor.
+-- Keep this file only as an explicit marker that chatbot persistence is disabled
+-- until a new storage design is approved.

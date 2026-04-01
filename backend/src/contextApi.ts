@@ -51,11 +51,12 @@ const createArticleBodySchema = z.object({
         longitude: z.number().optional(),
       })
     )
-    .min(1),
+    .min(1)
+    .max(1),
 });
 
 const interactionSchema = z.object({
-  type: z.enum(["VIEW", "SAVE", "UPVOTE"]),
+  type: z.enum(["VIEW", "SHARE", "SAVE", "UPVOTE", "DOWNVOTE", "REPORT"]),
   timeSpentMs: z.number().int().min(0).max(60 * 60 * 1000).optional(),
   scrollDepthPercent: z.number().int().min(0).max(100).optional(),
   locationLat: z.number().optional(),
@@ -67,7 +68,7 @@ const batchInteractionSchema = z.object({
     .array(
       z.object({
         articleId: z.number().int().positive(),
-        type: z.enum(["VIEW", "SAVE", "UPVOTE"]),
+        type: z.enum(["VIEW", "SHARE", "SAVE", "UPVOTE", "DOWNVOTE", "REPORT"]),
         timeSpentMs: z.number().int().min(0).max(60 * 60 * 1000).optional(),
         scrollDepthPercent: z.number().int().min(0).max(100).optional(),
       })
@@ -86,8 +87,47 @@ const bboxQuerySchema = z.object({
   minLng: z.coerce.number().optional(),
   maxLat: z.coerce.number().optional(),
   maxLng: z.coerce.number().optional(),
+  category: z.string().optional(),
+  categories: z.string().optional(),
+  reviewStatus: z.enum(["all", "reviewed", "unreviewed"]).optional().default("all"),
+  minStars: z.coerce.number().min(1).max(5).optional(),
   limit: z.coerce.number().int().min(1).max(500).optional().default(200),
 });
+
+const upsertContextReviewSchema = z.object({
+  stars: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(2000).optional(),
+});
+
+const contextReviewListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  sort: z.enum(["newest", "highest", "lowest"]).optional().default("newest"),
+});
+
+async function recalculateContextReviewStats(prisma: any, contextId: number) {
+  // We use Article with type = 'REVIEW' linked to this context
+  const aggregate = await prisma.article.aggregate({
+    _count: { _all: true },
+    where: { contextId, type: "REVIEW", status: "PUBLISHED" },
+  });
+
+  // Calculate average rating from a custom field or interaction? 
+  // Wait, the new schema doesn't have a "stars" field on Article or Interaction.
+  // The plan said: "Delete the context_reviews table and the stars field. Add a type enum to Article (e.g., POST, REVIEW)."
+  // So there are no stars anymore. We just count reviews.
+  const reviewCount = aggregate?._count?._all || 0;
+  const avgRating = 0.0; // Stars are removed
+
+  await prisma.context.update({
+    where: { id: contextId },
+    data: {
+      reviewCount,
+      avgRating,
+      isReviewed: reviewCount > 0,
+    },
+  });
+}
 
 export function createContextApiRouter() {
   const router = Router();
@@ -100,23 +140,24 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
       }
 
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const authorId = Number((req as any).user?.id);
       if (!authorId) return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Unauthorized");
 
       const categorySlug = normalizeCategorySlug(parsed.data.category);
-      let category = await prisma.category.findUnique({ where: { slug: categorySlug } });
+      let category = await prisma.taxonomy.findUnique({ where: { slug: categorySlug } });
       if (!category) {
         try {
-          category = await prisma.category.create({
+          category = await prisma.taxonomy.create({
             data: {
+              type: "CATEGORY",
               slug: categorySlug,
               name: toCategoryName(parsed.data.category),
               description: null,
             },
           });
         } catch (_err) {
-          category = await prisma.category.findUnique({ where: { slug: categorySlug } });
+          category = await prisma.taxonomy.findUnique({ where: { slug: categorySlug } });
         }
       }
 
@@ -179,12 +220,10 @@ export function createContextApiRouter() {
       for (const c of parsed.data.contexts) {
         let existing;
         if (c.type === "PLACE") {
-          // Heuristic Identity: Matching by (lat, lng) strictly for MVP.
-          // Future: may need spatial clustering or fuzzy name matching.
+          // PLACE identity is exact coordinates. Name/address may evolve, coordinates stay canonical.
           existing = await prisma.context.findFirst({
             where: {
               type: c.type,
-              name: c.name.trim(),
               latitude: c.latitude,
               longitude: c.longitude,
             },
@@ -218,20 +257,24 @@ export function createContextApiRouter() {
       const exists = await prisma.article.findUnique({ where: { slug } });
       if (exists) slug = `${base}-${Date.now().toString(36)}`;
 
+      const mainContextId = contextRecords.length > 0 ? contextRecords[0].id : null;
+      if (!mainContextId) {
+        return sendError(req, res, 400, "ERR_VALIDATION", "At least one context is required to create an article.");
+      }
+
       const article = await prisma.article.create({
         data: {
           slug,
           title: parsed.data.title.trim(),
           content: parsed.data.content,
           authorId,
-          categoryId: category.id,
-          contexts: {
-            create: contextRecords.map((ctx) => ({ contextId: ctx.id })),
-          },
+          type: "POST",
+          contextId: mainContextId,
+          taxonomies: { create: [{ taxonomyId: category.id }] },
         },
         include: {
-          category: true,
-          contexts: { include: { context: true } },
+          taxonomies: { include: { taxonomy: true } },
+          context: true,
         },
       });
 
@@ -244,7 +287,7 @@ export function createContextApiRouter() {
   // GET /api/articles/:id
   router.get("/articles/:id", async (req, res, next) => {
     try {
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -253,8 +296,8 @@ export function createContextApiRouter() {
       const article = await prisma.article.findUnique({
         where: { id },
         include: {
-          category: true,
-          contexts: { include: { context: true } },
+          taxonomies: { include: { taxonomy: true } },
+          context: true,
           author: { select: { id: true, email: true } },
         },
       });
@@ -274,7 +317,7 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
       }
 
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const articleId = Number(req.params.id);
       if (!Number.isFinite(articleId) || articleId <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -311,20 +354,17 @@ export function createContextApiRouter() {
       }
 
       if (type === "UPVOTE") {
-        const existingVote = await prisma.vote.findFirst({
-          where: { userId, articleId }
+        const existingVote = await prisma.interaction.findFirst({
+          where: { userId, articleId, type: "UPVOTE" }
         });
 
         if (!existingVote) {
           await prisma.$transaction([
-            prisma.vote.create({
-              data: { userId, articleId, type: "UP" }
-            }),
             prisma.interaction.create({
               data: {
                 userId,
                 articleId,
-                type,
+                type: "UPVOTE",
                 timeSpentMs,
                 scrollDepthPercent,
                 locationLat,
@@ -343,9 +383,39 @@ export function createContextApiRouter() {
         return sendSuccess(req, res, { upvoted: true });
       }
 
+      if (type === "SAVE" || type === "DOWNVOTE" || type === "REPORT" || type === "SHARE") {
+        const existingInteraction = await prisma.interaction.findFirst({
+          where: { userId, articleId, type }
+        });
+        if (!existingInteraction) {
+          const txOps: any[] = [
+            prisma.interaction.create({
+              data: {
+                userId,
+                articleId,
+                type,
+                timeSpentMs,
+                scrollDepthPercent,
+                locationLat,
+                locationLong
+              }
+            })
+          ];
+          if (type === "SAVE") {
+            txOps.push(
+              prisma.article.update({
+                where: { id: articleId },
+                data: { saveCount: { increment: 1 } }
+              })
+            );
+          }
+          await prisma.$transaction(txOps);
+        }
+        return sendSuccess(req, res, { recorded: true });
+      }
+
       const incrementData: any = {};
       if (type === "VIEW") incrementData.viewCount = { increment: 1 };
-      if (type === "SAVE") incrementData.saveCount = { increment: 1 };
 
       await prisma.$transaction([
         prisma.interaction.create({
@@ -382,7 +452,7 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
       }
 
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const userId = Number((req as any).user?.id);
       if (!userId) return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Unauthorized");
 
@@ -398,14 +468,14 @@ export function createContextApiRouter() {
         return sendError(req, res, 404, "ERR_NOT_FOUND", "Some articles not found");
       }
 
-      const articleMap = new Map(articles.map((a: any) => [a.id, a]));
+      const articleMap = new Map<number, any>(articles.map((a: any) => [a.id, a]));
 
-      const existingVotes = await prisma.vote.findMany({
-        where: { userId, articleId: { in: articleIds } },
-        select: { articleId: true }
+      const existingVotes = await prisma.interaction.findMany({
+        where: { userId, articleId: { in: articleIds }, type: { in: ["SAVE", "UPVOTE", "DOWNVOTE", "REPORT", "SHARE"] } },
+        select: { articleId: true, type: true }
       });
 
-      const votedSet = new Set(existingVotes.map((v: any) => v.articleId));
+      const existingInteractionSet = new Set(existingVotes.map((v: any) => `${v.articleId}:${v.type}`));
 
       // Rate Limit for VIEWs in Batch
       // 1. Get recent views (last 30 mins) - Strengthened integrity
@@ -419,7 +489,7 @@ export function createContextApiRouter() {
         },
         select: { articleId: true }
       });
-      const recentViewedArticleIds = new Set(recentViews.map(v => v.articleId));
+      const recentViewedArticleIds = new Set(recentViews.map((v: any) => v.articleId));
 
       await prisma.$transaction(async (tx: any) => {
         for (const item of items) {
@@ -432,12 +502,8 @@ export function createContextApiRouter() {
           }
 
           if (item.type === "UPVOTE") {
-            if (votedSet.has(item.articleId)) continue;
-            votedSet.add(item.articleId);
-
-            await tx.vote.create({
-              data: { userId, articleId: item.articleId, type: "UP" }
-            });
+            if (existingInteractionSet.has(`${item.articleId}:UPVOTE`)) continue;
+            existingInteractionSet.add(`${item.articleId}:UPVOTE`);
             await tx.interaction.create({
               data: {
                 userId,
@@ -454,13 +520,35 @@ export function createContextApiRouter() {
             continue;
           }
 
+          if (item.type === "SAVE" || item.type === "DOWNVOTE" || item.type === "REPORT" || item.type === "SHARE") {
+            const dedupeKey = `${item.articleId}:${item.type}`;
+            if (existingInteractionSet.has(dedupeKey)) continue;
+            existingInteractionSet.add(dedupeKey);
+
+            await tx.interaction.create({
+              data: {
+                userId,
+                articleId: item.articleId,
+                type: item.type,
+                timeSpentMs: item.timeSpentMs,
+                scrollDepthPercent: item.scrollDepthPercent
+              }
+            });
+            if (item.type === "SAVE") {
+              await tx.article.update({
+                where: { id: item.articleId },
+                data: { saveCount: { increment: 1 } }
+              });
+            }
+            continue;
+          }
+
           const incrementData: any = {};
           if (item.type === "VIEW") {
             incrementData.viewCount = { increment: 1 };
             // Mark as viewed in our local set to prevent double counting within the same batch
             recentViewedArticleIds.add(item.articleId);
           }
-          if (item.type === "SAVE") incrementData.saveCount = { increment: 1 };
 
           await tx.interaction.create({
             data: {
@@ -506,7 +594,7 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
       }
 
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const articleId = Number(req.params.id);
       if (!Number.isFinite(articleId) || articleId <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -537,25 +625,13 @@ export function createContextApiRouter() {
       if (!article) return sendError(req, res, 404, "ERR_NOT_FOUND", "Not found");
 
       // Refactor: Decoupled Suggestion from Interaction
-      const suggestion = await prisma.$transaction(async (tx: any) => {
-        const created = await tx.suggestion.create({
-          data: {
-            authorId: userId,
-            articleId,
-            content: parsed.data.content,
-            comment: parsed.data.comment || null,
-          }
-        });
-
-        // NOTE: We do NOT create an Interaction(type=SUGGEST) anymore.
-        // Suggestion is a value object, not a signal user interaction.
-
-        await tx.article.update({
-          where: { id: articleId },
-          data: { suggestionCount: { increment: 1 } }
-        });
-
-        return created;
+      const suggestion = await prisma.suggestion.create({
+        data: {
+          authorId: userId,
+          articleId,
+          content: parsed.data.content,
+          comment: parsed.data.comment || null,
+        }
       });
 
       await enqueueScoringJobs({ articleId, userId: article.authorId });
@@ -568,7 +644,7 @@ export function createContextApiRouter() {
   // GET /api/contexts/:id
   router.get("/contexts/:id", async (req, res, next) => {
     try {
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -579,10 +655,8 @@ export function createContextApiRouter() {
         include: {
           articles: {
             include: {
-              article: {
-                include: {
-                  category: true,
-                },
+              taxonomies: {
+                include: { taxonomy: true },
               },
             },
           },
@@ -604,8 +678,8 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid query params", parsed.error.issues);
       }
 
-      const { minLat, minLng, maxLat, maxLng, limit } = parsed.data;
-      const prisma = getPrisma();
+      const { minLat, minLng, maxLat, maxLng, category, categories, reviewStatus, minStars, limit } = parsed.data;
+      const prisma: any = getPrisma();
 
       const where: any = { type: "PLACE" };
       if (
@@ -618,10 +692,32 @@ export function createContextApiRouter() {
         where.longitude = { gte: minLng, lte: maxLng };
       }
 
+      const categoryFilters = [
+        ...(category ? [category] : []),
+        ...(categories ? categories.split(",").map((item) => item.trim()).filter(Boolean) : []),
+      ];
+      if (categoryFilters.length > 0) {
+        where.category = { in: Array.from(new Set(categoryFilters)) };
+      }
+
+      if (reviewStatus === "reviewed") {
+        where.isReviewed = true;
+      } else if (reviewStatus === "unreviewed") {
+        where.isReviewed = false;
+      }
+
+      if (minStars !== undefined) {
+        where.avgRating = { gte: minStars };
+      }
+
       const contexts = await prisma.context.findMany({
         where,
         take: limit,
-        orderBy: { updatedAt: "desc" },
+        orderBy: [
+          { isReviewed: "desc" },
+          { avgRating: "desc" },
+          { updatedAt: "desc" },
+        ],
       });
 
       return sendSuccess(req, res, { contexts });
@@ -630,10 +726,155 @@ export function createContextApiRouter() {
     }
   });
 
+  // POST /api/map/contexts/:id/reviews
+  router.post(
+    "/map/contexts/:id/reviews",
+    authenticate,
+    requireActiveUser,
+    requireCsrf,
+    async (req, res, next) => {
+      try {
+        const prisma: any = getPrisma();
+        const contextId = Number(req.params.id);
+        if (!Number.isFinite(contextId) || contextId <= 0) {
+          return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
+        }
+
+        const parsed = upsertContextReviewSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return sendError(req, res, 400, "ERR_VALIDATION", "Invalid body", parsed.error.issues);
+        }
+
+        const userId = Number((req as any).user?.id);
+        if (!userId) return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Unauthorized");
+
+        const context = await prisma.context.findUnique({ where: { id: contextId } });
+        if (!context) return sendError(req, res, 404, "ERR_NOT_FOUND", "Not found");
+        if (context.type !== "PLACE") {
+          return sendError(req, res, 400, "ERR_VALIDATION", "Context is not PLACE");
+        }
+
+        // Reviews are now Articles of type REVIEW
+        // As per the plan, 'stars' field is removed. We use content to store review text.
+        // The composite unique constraint contextId_userId is gone because it's now just Articles.
+        // We handle upsert manually.
+        let review = await prisma.article.findFirst({
+          where: {
+            contextId,
+            type: "REVIEW"
+          }
+        });
+
+        if (review) {
+          if (review.authorId !== userId) {
+            return sendError(req, res, 409, "ERR_REVIEW_EXISTS", "This PLACE already has a canonical review article.");
+          }
+          review = await prisma.article.update({
+            where: { id: review.id },
+            data: {
+              content: parsed.data.comment || "Reviewed",
+              title: `Review for Context ${contextId}`, // Generate a title
+              status: "PUBLISHED"
+            }
+          });
+        } else {
+          review = await prisma.article.create({
+            data: {
+              contextId,
+              authorId: userId,
+              type: "REVIEW",
+              slug: `review-${contextId}-${userId}-${Date.now()}`,
+              content: parsed.data.comment || "Reviewed",
+              title: `Review for Context ${contextId}`,
+              status: "PUBLISHED"
+            }
+          });
+        }
+
+        await recalculateContextReviewStats(prisma, contextId);
+
+        return sendSuccess(req, res, { review }, 201);
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  // GET /api/map/contexts/:id/reviews
+  router.get("/map/contexts/:id/reviews", async (req, res, next) => {
+    try {
+      const prisma: any = getPrisma();
+      const contextId = Number(req.params.id);
+      if (!Number.isFinite(contextId) || contextId <= 0) {
+        return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
+      }
+
+      const queryParsed = contextReviewListQuerySchema.safeParse(req.query);
+      if (!queryParsed.success) {
+        return sendError(req, res, 400, "ERR_VALIDATION", "Invalid query params", queryParsed.error.issues);
+      }
+
+      const context = await prisma.context.findUnique({ where: { id: contextId } });
+      if (!context) return sendError(req, res, 404, "ERR_NOT_FOUND", "Not found");
+      if (context.type !== "PLACE") {
+        return sendError(req, res, 400, "ERR_VALIDATION", "Context is not PLACE");
+      }
+
+      const { page, limit, sort } = queryParsed.data;
+      const skip = (page - 1) * limit;
+      const asc = "asc" as const;
+      const desc = "desc" as const;
+      const orderBy = [{ createdAt: desc }];
+
+      const [totalItems, reviews] = await Promise.all([
+        prisma.article.count({
+          where: { contextId, type: "REVIEW", status: "PUBLISHED" },
+        }),
+        prisma.article.findMany({
+          where: { contextId, type: "REVIEW", status: "PUBLISHED" },
+          skip,
+          take: limit,
+          orderBy: [{ createdAt: desc }], // Stars removed, sort by createdAt
+          include: {
+            author: {
+              select: {
+                id: true,
+                email: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ]);
+
+      return sendSuccess(req, res, {
+        context: {
+          id: context.id,
+          name: context.name,
+          isReviewed: context.isReviewed,
+          reviewCount: context.reviewCount,
+          avgRating: context.avgRating,
+        },
+        reviews,
+        page,
+        limit,
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // GET /api/map/contexts/:id/articles
   router.get("/map/contexts/:id/articles", async (req, res, next) => {
     try {
-      const prisma = getPrisma();
+      const prisma: any = getPrisma();
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
         return sendError(req, res, 400, "ERR_VALIDATION", "Invalid id");
@@ -645,16 +886,16 @@ export function createContextApiRouter() {
         return sendError(req, res, 400, "ERR_VALIDATION", "Context is not PLACE");
       }
 
-      const links = await prisma.articleContext.findMany({
+      const articles = await prisma.article.findMany({
         where: { contextId: id },
-        include: { article: { include: { category: true } } },
+        include: { taxonomies: { include: { taxonomy: true } } },
         orderBy: { createdAt: "desc" },
         take: 50,
       });
 
       return sendSuccess(req, res, {
         context,
-        articles: links.map((l: any) => l.article),
+        articles,
       });
     } catch (err) {
       next(err);

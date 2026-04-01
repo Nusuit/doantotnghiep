@@ -99,6 +99,12 @@ export const api = {
             const { data } = await apiClient.post(`/articles/${articleId}/suggestions`, payload);
             return data.data;
         }
+    },
+    search: {
+        suggest: async (q: string) => {
+            const { data } = await apiClient.get('/search/suggest', { params: { q } });
+            return data.data;
+        }
     }
 };
 

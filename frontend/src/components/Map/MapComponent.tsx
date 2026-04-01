@@ -13,6 +13,7 @@ interface MapComponentProps {
     category?: string;
   }>;
   onLocationSelect?: (location: any) => void;
+  onMapLoad?: (map: any) => void;
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
@@ -21,6 +22,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   height = "400px",
   markers = [],
   onLocationSelect,
+  onMapLoad,
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
@@ -58,6 +60,10 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
         map.current.on("load", () => {
           setIsLoading(false);
+          // Expose map instance to parent
+          if (onMapLoad) {
+            onMapLoad(map.current);
+          }
         });
 
         // Handle map clicks
@@ -83,6 +89,39 @@ const MapComponent: React.FC<MapComponentProps> = ({
       }
     };
   }, []);
+
+  // Update map center when center prop changes
+  useEffect(() => {
+    console.log('[MapComponent] Center changed:', center, 'Zoom:', zoom);
+    if (map.current && center) {
+      try {
+        // Check if map is loaded
+        if (!map.current.loaded()) {
+          console.log('[MapComponent] Map not loaded yet, waiting...');
+          map.current.once('load', () => {
+            console.log('[MapComponent] Map loaded, moving to:', center);
+            map.current.easeTo({
+              center: center,
+              zoom: zoom,
+              duration: 1500
+            });
+          });
+        } else {
+          console.log('[MapComponent] Moving to:', center, 'with zoom:', zoom);
+          // Try easeTo instead of flyTo for more reliable movement
+          map.current.easeTo({
+            center: center,
+            zoom: zoom,
+            duration: 1500
+          });
+          console.log('[MapComponent] Movement command sent');
+        }
+      } catch (error) {
+        console.error('[MapComponent] Error moving map:', error);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [center ? JSON.stringify(center) : null, zoom]);
 
   // Add markers when they change
   useEffect(() => {

@@ -16,6 +16,7 @@ export interface SessionUser {
   role: "admin" | "client";
   isEmailVerified: boolean;
   accountStatus: string;
+  walletAddress?: string | null;
   status?: 'authenticated' | 'partial';
   name?: string;
   avatar?: string;

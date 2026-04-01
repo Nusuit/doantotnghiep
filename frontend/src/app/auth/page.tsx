@@ -14,10 +14,6 @@ const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   fullName: z.string().min(1, "Full name is required"),
-  confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
 });
 
 const loginSchema = z.object({
@@ -273,7 +269,7 @@ function AuthContent() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between ml-1">
                 <label htmlFor="password" className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Password</label>
-                {isLogin && <a href="#" className="text-xs font-bold text-blue-600 hover:text-blue-700">Forgot password?</a>}
+                {isLogin && <Link href="/auth/forgot-password" className="text-xs font-bold text-blue-600 hover:text-blue-700">Forgot password?</Link>}
               </div>
               <div className="relative">
                 <input

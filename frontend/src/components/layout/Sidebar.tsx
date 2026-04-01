@@ -216,7 +216,7 @@ export const Sidebar = () => {
                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">
                                         {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
                                     </span>
-                                    
+
                                     {/* Animated Switch with Decorations */}
                                     <div className={`relative w-12 h-6 rounded-full transition-colors duration-500 ease-in-out flex items-center ${theme === 'dark' ? 'bg-[#1A1D24] border border-gray-600' : 'bg-cyan-200 border border-cyan-300'}`}>
                                         {/* Decor: Clouds (Light Mode) */}
@@ -237,8 +237,8 @@ export const Sidebar = () => {
 
                                         {/* The Knob (Sun/Moon) */}
                                         <div className={`absolute w-5 h-5 rounded-full shadow-sm transform transition-transform duration-500 flex items-center justify-center ${
-                                            theme === 'dark' 
-                                            ? 'translate-x-[26px] bg-slate-200' 
+                                            theme === 'dark'
+                                            ? 'translate-x-[26px] bg-slate-200'
                                             : 'translate-x-[2px] bg-yellow-400'
                                         }`}>
                                             {/* Optional: Moon crater decoration */}

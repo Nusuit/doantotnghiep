@@ -107,30 +107,18 @@ export class PostProjectionService {
                         email: true // Fallback if no profile
                     }
                 },
-                tags: {
-                    select: {
-                        name: true
-                    }
-                },
-                category: {
-                    select: {
-                        name: true,
-                        slug: true
+                taxonomies: {
+                    include: {
+                        taxonomy: true
                     }
                 },
                 // Context for Location
-                contexts: {
-                    where: { context: { type: 'PLACE' } },
+                context: {
                     select: {
-                        context: {
-                            select: {
-                                name: true,
-                                latitude: true,
-                                longitude: true
-                            }
-                        }
-                    },
-                    take: 1
+                        name: true,
+                        latitude: true,
+                        longitude: true
+                    }
                 }
             }
         });
@@ -147,10 +135,17 @@ export class PostProjectionService {
             : "";
 
         // Tag extraction
-        const tags = Array.isArray(post.tags) ? post.tags.map((t: any) => t.name).filter(Boolean) : [];
+        const tags = Array.isArray(post.taxonomies) 
+            ? post.taxonomies.filter((t: any) => t.taxonomy.type === 'TAG').map((t: any) => t.taxonomy.name).filter(Boolean) 
+            : [];
+
+        // Category extraction
+        const categoryData = Array.isArray(post.taxonomies) 
+            ? post.taxonomies.find((t: any) => t.taxonomy.type === 'CATEGORY')?.taxonomy 
+            : null;
 
         // Location extraction
-        const context = post.contexts?.[0]?.context;
+        const context = post.context;
         const location = context && typeof context.latitude === "number" && typeof context.longitude === "number"
             ? { name: context.name, lat: context.latitude, lng: context.longitude }
             : null;
@@ -164,7 +159,7 @@ export class PostProjectionService {
                 avatar: authorAvatar
             },
             tags,
-            category: post.category ? { name: post.category.name, slug: post.category.slug } : null,
+            category: categoryData ? { name: categoryData.name, slug: categoryData.slug } : null,
             location,
             createdAt: post.createdAt.toISOString()
         };

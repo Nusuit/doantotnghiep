@@ -65,24 +65,47 @@ export class PostStatsService {
     }
 
     private static async fetchStatsFromDb(ids: number[]): Promise<Map<number, PostStats>> {
-        const prisma = getPrisma();
+        const prisma: any = getPrisma();
         const statsMap = new Map<number, PostStats>();
 
-        const articles = await prisma.article.findMany({
-            where: { id: { in: ids } },
-            select: {
-                id: true,
-                upvoteCount: true,
-                suggestionCount: true,
-                saveCount: true
-            }
-        });
+        const [articles, comments, shares] = await Promise.all([
+            prisma.article.findMany({
+                where: { id: { in: ids } },
+                select: {
+                    id: true,
+                    upvoteCount: true,
+                }
+            }),
+            prisma.comment.groupBy({
+                by: ["articleId"],
+                where: {
+                    articleId: { in: ids },
+                    deletedAt: null,
+                },
+                _count: {
+                    articleId: true,
+                }
+            }),
+            prisma.interaction.groupBy({
+                by: ["articleId"],
+                where: {
+                    articleId: { in: ids },
+                    type: "SHARE",
+                },
+                _count: {
+                    articleId: true,
+                }
+            })
+        ]);
 
-        articles.forEach((article) => {
+        const commentMap = new Map<number, number>(comments.map((entry: any) => [entry.articleId, entry._count.articleId]));
+        const shareMap = new Map<number, number>(shares.map((entry: any) => [entry.articleId, entry._count.articleId]));
+
+        articles.forEach((article: any) => {
             statsMap.set(article.id, {
                 likes: article.upvoteCount || 0,
-                comments: article.suggestionCount || 0,
-                shares: article.saveCount || 0
+                comments: commentMap.get(article.id) || 0,
+                shares: shareMap.get(article.id) || 0
             });
         });
 

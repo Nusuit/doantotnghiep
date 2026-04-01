@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@/hooks/useWallet';
 import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
 
 // --- MOCK NOTIFICATIONS ---
 const MOCK_NOTIFICATIONS = [
@@ -14,15 +15,12 @@ const MOCK_NOTIFICATIONS = [
 ];
 
 export const Header = () => {
-    const { walletAddress, handleConnect } = useWallet();
+    const { walletAddress, shortAddress, handleConnect, isInstalled, isConnecting } = useWallet();
     const { user } = useAuth();
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
 
     const notifRef = useRef<HTMLDivElement>(null);
-
-    // Helper to truncate address
-    const shortAddress = walletAddress ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}` : '';
 
     const displayName = user?.name || user?.email || "Guest";
     const initials = displayName.substring(0, 2).toUpperCase();
@@ -151,7 +149,19 @@ export const Header = () => {
 
                 {/* 1. SEPARATED WALLET CONNECT BUTTON - PURPLE with SHADOW */}
                 <button
-                    onClick={handleConnect}
+                    onClick={async () => {
+                        if (!isInstalled) {
+                            toast.error('Phantom wallet is not installed');
+                            return;
+                        }
+                        try {
+                            await handleConnect();
+                            toast.success(walletAddress ? 'Wallet disconnected' : 'Wallet connected');
+                        } catch (err: any) {
+                            toast.error(err?.message || 'Wallet action failed');
+                        }
+                    }}
+                    disabled={isConnecting}
                     className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all border ${walletAddress
                         ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
                         : 'bg-primary text-white hover:opacity-90 border-transparent shadow-lg shadow-primary/20'
@@ -160,7 +170,7 @@ export const Header = () => {
                     <span className="material-symbols-outlined text-sm">
                         {walletAddress ? 'account_balance_wallet' : 'wallet'}
                     </span>
-                    {walletAddress ? shortAddress : 'Connect Wallet'}
+                    {isConnecting ? 'Processing...' : (walletAddress ? shortAddress : 'Connect Wallet')}
                 </button>
 
                 {/* 2. SEPARATED PROFILE DISPLAY (Always Visible) */}
