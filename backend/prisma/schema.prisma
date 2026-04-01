@@ -36,6 +36,7 @@ model User {
   following             Follow[]            @relation("FollowSource")
   badges                UserBadge[]
   editedArticleVersions ArticleVersion[]    @relation("ArticleVersionEditor")
+  favoriteLocations     FavoriteLocation[]
 
   @@index([ksScore(sort: Desc)], map: "idx_users_ks_score")
   @@index([accountStatus], map: "idx_users_account_status")
@@ -393,6 +394,23 @@ model Notification {
 
   @@index([userId, isRead, createdAt], map: "idx_notifications_user_read_created_at")
   @@map("notifications")
+}
+
+model FavoriteLocation {
+  id        String   @id @default(cuid())
+  userId    Int      @map("user_id")
+  name      String   @db.VarChar(255)
+  address   String?  @db.VarChar(500)
+  lat       Float
+  lng       Float
+  category  String   @default("general") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_favorite_user")
+  @@index([lat, lng], map: "idx_favorite_coords")
+  @@map("favorite_locations")
 }
 
 enum AccountStatus {
