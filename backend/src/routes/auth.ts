@@ -320,9 +320,7 @@ export function createAuthRouter() {
       setAuthCookies(res, newAccessToken, newRefreshToken);
 
       // 5. Redirect to Frontend with Success Flag
-      const redirectUrl = isNewUser
-        ? `${frontendUrl}/app/onboarding?welcome=google`
-        : `${frontendUrl}/app/feed?welcome=back`;
+      const redirectUrl = `${frontendUrl}/app/feed`;
 
       console.log("---------------------------------------------------");
       console.log("GOOGLE LOGIN SUCCESS");
