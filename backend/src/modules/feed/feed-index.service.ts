@@ -59,6 +59,7 @@ export class FeedIndexService {
 
         const whereBase: any = {
             status: "PUBLISHED",
+            visibility: "PUBLIC",
             tier: { in: ["TIER_0", "TIER_1", "TIER_2", "TIER_3"] }
         };
 

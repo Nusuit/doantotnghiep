@@ -284,6 +284,51 @@ export function createContextApiRouter() {
     }
   });
 
+  // PUT /api/articles/:id/visibility
+  router.put("/articles/:id/visibility", authenticate, async (req, res, next) => {
+    try {
+      const prisma: any = getPrisma();
+      const id = Number(req.params.id);
+      const userId = Number((req as any).user?.id);
+
+      if (!id || !userId) return sendError(req, res, 400, "ERR_VALIDATION", "Invalid input");
+
+      const article = await prisma.article.findUnique({ where: { id } });
+      if (!article) return sendError(req, res, 404, "ERR_NOT_FOUND", "Article not found");
+      if (article.authorId !== userId) return sendError(req, res, 403, "ERR_FORBIDDEN", "Not your article");
+
+      const newVisibility = article.visibility === "PUBLIC" ? "PRIVATE" : "PUBLIC";
+      
+      const updated = await prisma.article.update({
+        where: { id },
+        data: { visibility: newVisibility }
+      });
+      return sendSuccess(req, res, updated);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // DELETE /api/articles/:id
+  router.delete("/articles/:id", authenticate, async (req, res, next) => {
+    try {
+      const prisma: any = getPrisma();
+      const id = Number(req.params.id);
+      const userId = Number((req as any).user?.id);
+
+      if (!id || !userId) return sendError(req, res, 400, "ERR_VALIDATION", "Invalid input");
+
+      const article = await prisma.article.findUnique({ where: { id } });
+      if (!article) return sendError(req, res, 404, "ERR_NOT_FOUND", "Article not found");
+      if (article.authorId !== userId) return sendError(req, res, 403, "ERR_FORBIDDEN", "Not your article");
+
+      await prisma.article.delete({ where: { id } });
+      return sendSuccess(req, res, { deleted: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // GET /api/articles/:id
   router.get("/articles/:id", async (req, res, next) => {
     try {
@@ -371,16 +416,26 @@ export function createContextApiRouter() {
                 locationLong
               }
             }),
-            // NOTE:upvoteCount is a SOCIAL SIGNAL only. Not for scoring.
             prisma.article.update({
               where: { id: articleId },
               data: { upvoteCount: { increment: 1 } }
             })
           ]);
+          await enqueueScoringJobs({ articleId, userId: article.authorId });
+          return sendSuccess(req, res, { upvoted: true });
+        } else {
+          await prisma.$transaction([
+            prisma.interaction.delete({
+              where: { id: existingVote.id }
+            }),
+            prisma.article.update({
+              where: { id: articleId },
+              data: { upvoteCount: { decrement: 1 } }
+            })
+          ]);
+          await enqueueScoringJobs({ articleId, userId: article.authorId });
+          return sendSuccess(req, res, { upvoted: false });
         }
-
-        await enqueueScoringJobs({ articleId, userId: article.authorId });
-        return sendSuccess(req, res, { upvoted: true });
       }
 
       if (type === "SAVE" || type === "DOWNVOTE" || type === "REPORT" || type === "SHARE") {

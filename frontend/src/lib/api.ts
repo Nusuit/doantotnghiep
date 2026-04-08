@@ -34,7 +34,7 @@ apiClient.interceptors.response.use(
             message += `: ${issues}`;
         }
 
-        toast.error(message);
+        toast.error(message, { id: `err-${Date.now()}` });
         return Promise.reject(error);
     }
 );
@@ -98,6 +98,14 @@ export const api = {
         suggest: async (articleId: number, payload: { content: string; comment?: string }) => {
             const { data } = await apiClient.post(`/articles/${articleId}/suggestions`, payload);
             return data.data;
+        },
+        toggleVisibility: async (articleId: number) => {
+            const { data } = await apiClient.put(`/articles/${articleId}/visibility`);
+            return data.data;
+        },
+        delete: async (articleId: number) => {
+            const { data } = await apiClient.delete(`/articles/${articleId}`);
+            return data.data;
         }
     },
     search: {
@@ -108,4 +116,5 @@ export const api = {
     }
 };
 
+export { apiClient };
 export default api;

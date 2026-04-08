@@ -89,7 +89,7 @@ export class PostProjectionService {
 
     private static async fetchFromDb(ids: number[]) {
         const prisma = getPrisma();
-        return prisma.article.findMany({
+        const articles = await prisma.article.findMany({
             where: { id: { in: ids } },
             select: {
                 id: true,
@@ -122,6 +122,8 @@ export class PostProjectionService {
                 }
             }
         });
+        // Truncate content early — only 150 chars are used for excerpt
+        return articles.map(a => ({ ...a, content: a.content ? a.content.slice(0, 300) : "" }));
     }
 
     private static transform(post: any): PostProjection {
