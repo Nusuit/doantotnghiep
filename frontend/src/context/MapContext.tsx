@@ -86,7 +86,7 @@ export const useMap = () => {
 
 // Map styles presets
 export const MAP_STYLES = {
-  CUSTOM: process.env.NEXT_PUBLIC_MAPBOX_STYLE_URL || "mapbox://styles/hoangdung178/cmmj93wsl00pw01qz4z0x3v91",
+  CUSTOM: process.env.NEXT_PUBLIC_MAPBOX_STYLE_URL,
   STANDARD: "mapbox://styles/mapbox/standard",
   STREETS: "mapbox://styles/mapbox/streets-v12",
   LIGHT: "mapbox://styles/mapbox/light-v11",

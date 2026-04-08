@@ -7,7 +7,6 @@ import {
   Clock,
   X,
   Menu,
-  Bookmark,
   Loader2,
   Flag,
   CheckCircle2,
@@ -546,7 +545,7 @@ const MapSearch: React.FC<MapSearchProps> = ({
       } else {
         setResults([]);
       }
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timeoutId);
   }, [query]);
@@ -857,9 +856,9 @@ const MapSearch: React.FC<MapSearchProps> = ({
             onClick={() => setActiveDrawerTab("saved")}
             className="w-full flex items-center gap-4 p-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors text-left"
           >
-            <Bookmark size={24} className="text-blue-500" />
+            <Heart size={24} className="text-red-500 fill-current" />
             <div>
-              <div className="text-sm font-bold text-gray-900 dark:text-white">Saved Places</div>
+              <div className="text-sm font-bold text-gray-900 dark:text-white">Favorite</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">{totalSavedPlaces} locations</div>
             </div>
           </button>
@@ -900,7 +899,7 @@ const MapSearch: React.FC<MapSearchProps> = ({
             >
               <ArrowLeft size={16} />
             </button>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Saved Places</h3>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Favorite</h3>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">

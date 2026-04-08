@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { MapPin, Navigation2 } from "lucide-react";
 import Map, {
   NavigationControl,
@@ -22,6 +22,16 @@ interface MapContainerProps {
   interactiveLayerIds?: string[];
   /** Callback khi user click vào 1 POI trên map (tên, toạ độ, loại địa điểm) */
   onPoiClick?: (poi: { name: string; lat: number; lng: number; category?: string; address?: string }) => void;
+  /**
+   * When true: suppresses all POI snapping/detection and changes cursor to crosshair.
+   * onClick still fires with the raw Mapbox event so the parent can read lngLat.
+   */
+  interactivePinMode?: boolean;
+  /**
+   * When true: automatically triggers geolocation after the map loads
+   * so the user sees their current position without pressing any button.
+   */
+  autoGeolocate?: boolean;
 }
 
 // ── Helper: map Mapbox category → icon + màu + nhãn tiếng Việt ──────────────
@@ -71,7 +81,11 @@ const MapContainer: React.FC<MapContainerProps> = ({
   onMoveEnd,
   interactiveLayerIds,
   onPoiClick,
+  interactivePinMode = false,
+  autoGeolocate = false,
 }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const geolocateRef = useRef<any>(null);
   const {
     mapRef,
     isMapLoaded,
@@ -97,6 +111,13 @@ const MapContainer: React.FC<MapContainerProps> = ({
       onMapLoad();
     }
 
+    // Auto-trigger geolocation when no deep-link coords in URL
+    if (autoGeolocate) {
+      setTimeout(() => {
+        geolocateRef.current?.trigger();
+      }, 800);
+    }
+
     // Override compass click: reset both bearing AND pitch to 0
     setTimeout(() => {
       const mapInstance = mapRef.current?.getMap();
@@ -113,13 +134,23 @@ const MapContainer: React.FC<MapContainerProps> = ({
         );
       }
     }, 300);
-  }, [onMapLoad, setIsMapLoaded, mapRef]);
+  }, [onMapLoad, setIsMapLoaded, mapRef, autoGeolocate]);
+
+  // ── Cursor: crosshair when in pin-drop mode ───────────────────────────────
+  useEffect(() => {
+    const canvas = mapRef.current?.getMap()?.getCanvas();
+    if (canvas) canvas.style.cursor = interactivePinMode ? "crosshair" : "";
+  }, [interactivePinMode, mapRef]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   // ── Handler: click lên bản đồ → query POI native từ Mapbox tiles ──────────
   const handleMapClick = useCallback(
     (e: any) => {
       // Gọi onClick từ bên ngoài nếu có
       if (onClick) onClick(e);
+
+      // In pin-drop mode: skip all POI snapping — parent handles raw lngLat
+      if (interactivePinMode) return;
 
       const map = mapRef.current?.getMap();
       if (!map) return;
@@ -197,7 +228,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         onPoiClick({ name, lat, lng, category, address });
       }
     },
-    [onClick, onPoiClick, mapRef, hidePopup, addMarker, removeMarker]
+    [onClick, interactivePinMode, onPoiClick, mapRef, hidePopup, addMarker, removeMarker]
   );
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -244,8 +275,10 @@ const MapContainer: React.FC<MapContainerProps> = ({
 
             {/* Geolocation Control */}
             <GeolocateControl
+              ref={geolocateRef}
               position="top-right"
               trackUserLocation={true}
+              showUserLocation={true}
               showAccuracyCircle={true}
             />
           </>

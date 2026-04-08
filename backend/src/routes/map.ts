@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getPrisma } from "../db/prisma";
-import { authenticate } from "../middleware/auth";
+import { authenticate, requireActiveUser } from "../middleware/auth";
 import { sendSuccess, sendError } from "../utils/response";
 
 const savePlaceSchema = z.object({
@@ -47,7 +47,7 @@ export function createMapRouter() {
     });
 
     // POST /api/map/favorites – Lưu địa điểm
-    router.post("/favorites", authenticate, async (req, res) => {
+    router.post("/favorites", authenticate, requireActiveUser, async (req, res) => {
         const parsed = savePlaceSchema.safeParse(req.body);
         if (!parsed.success) {
             return sendError(req, res, 400, "ERR_VALIDATION", "Dữ liệu không hợp lệ", parsed.error.issues);
@@ -89,7 +89,7 @@ export function createMapRouter() {
     });
 
     // DELETE /api/map/favorites/:favoriteId – Bỏ lưu địa điểm
-    router.delete("/favorites/:favoriteId", authenticate, async (req, res) => {
+    router.delete("/favorites/:favoriteId", authenticate, requireActiveUser, async (req, res) => {
         const parsed = favoriteIdParamSchema.safeParse(req.params);
         if (!parsed.success) {
             return sendError(req, res, 400, "ERR_VALIDATION", "ID không hợp lệ");
