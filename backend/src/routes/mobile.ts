@@ -1,9 +1,10 @@
-import { Router } from "express";
+import { Router, Request } from "express";
 import { z } from "zod";
 
 import { getPrisma } from "../db/prisma";
 import { authenticate, requireActiveUser, requireCsrf } from "../middleware/auth";
 import { sendError, sendSuccess } from "../utils/response";
+import { searchSuggest, searchFull } from "../services/search.service";
 
 const searchSuggestQuerySchema = z.object({
   q: z.string().trim().min(1).max(120),
@@ -39,7 +40,7 @@ const createPlaceSchema = z.object({
 
 const publishReviewSchema = z.object({
   stars: z.number().int().min(1).max(5),
-  content: z.string().trim().min(1).max(5000),
+  content: z.string().trim().max(5000).optional().default(""),
   visibility: z.enum(["PUBLIC", "PRIVATE", "PREMIUM"]).optional().default("PUBLIC"),
   isPremium: z.boolean().optional().default(false),
   depositAmount: z.number().int().min(0).optional().default(0),
@@ -61,65 +62,6 @@ const importWorldSchema = z.object({
     })
     .optional(),
 });
-
-function normalize(text: string) {
-  return text.toLowerCase().trim();
-}
-
-function tokenize(text: string) {
-  return normalize(text).split(/\s+/).filter(Boolean);
-}
-
-function tokenScore(tokens: string[], haystack: string) {
-  if (tokens.length === 0) return 0;
-  const lower = normalize(haystack);
-  let matched = 0;
-  for (const token of tokens) {
-    if (lower.includes(token)) matched++;
-  }
-  return matched / tokens.length;
-}
-
-function distanceInMeters(
-  aLat?: number | null,
-  aLng?: number | null,
-  bLat?: number | null,
-  bLng?: number | null
-) {
-  if (
-    typeof aLat !== "number" ||
-    typeof aLng !== "number" ||
-    typeof bLat !== "number" ||
-    typeof bLng !== "number"
-  ) {
-    return null;
-  }
-
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const earthR = 6371000;
-  const dLat = toRad(bLat - aLat);
-  const dLng = toRad(bLng - aLng);
-  const aa =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
-  return earthR * c;
-}
-
-function proximityScore(
-  sourceLat?: number | null,
-  sourceLng?: number | null,
-  userLat?: number,
-  userLng?: number
-) {
-  const distance = distanceInMeters(sourceLat, sourceLng, userLat, userLng);
-  if (distance == null) return 0;
-  if (distance <= 500) return 1;
-  if (distance <= 1500) return 0.75;
-  if (distance <= 5000) return 0.45;
-  if (distance <= 12000) return 0.18;
-  return 0;
-}
 
 function countWords(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -189,101 +131,12 @@ export function createMobileRouter() {
 
       const { q, world, limit, lat, lng, minRating, nearby } = parsed.data;
       const prisma = getPrisma();
-      const tokens = tokenize(q);
+      const userId = Number((req as Request & { user?: { id: unknown } }).user?.id ?? 0);
 
-      const userId = Number((req as any).user?.id || 0);
-      const isPrivate = world === "private" && userId > 0;
-
-      const placeItems = isPrivate
-        ? await prisma.collectionItem.findMany({
-            where: {
-              collection: {
-                userId,
-                title: "Favorite Locations",
-                isPublic: false
-              },
-              article: {
-                context: {
-                  OR: [{ name: { contains: q, mode: "insensitive" } }, { address: { contains: q, mode: "insensitive" } }]
-                }
-              }
-            },
-            include: {
-              article: {
-                include: { context: true }
-              }
-            },
-            take: 120,
-            orderBy: { addedAt: "desc" },
-          })
-        : await prisma.context.findMany({
-            where: {
-              type: "PLACE",
-              ...(minRating !== undefined ? { avgRating: { gte: minRating } } : {}),
-              OR: [
-                { name: { contains: q, mode: "insensitive" } },
-                { description: { contains: q, mode: "insensitive" } },
-                { address: { contains: q, mode: "insensitive" } },
-                { category: { contains: q, mode: "insensitive" } },
-              ],
-            },
-            take: 180,
-            orderBy: [{ isReviewed: "desc" }, { avgRating: "desc" }, { updatedAt: "desc" }],
-          });
-
-      const items = placeItems
-        .map((item: any) => {
-          let rowLat, rowLng, name, address, description, category, avgRating, reviewCount, updatedAt, createdAt, id;
-          
-          if (item.article && item.article.context) {
-             const ctx = item.article.context;
-             rowLat = typeof ctx.latitude === "number" ? ctx.latitude : ctx.lat;
-             rowLng = typeof ctx.longitude === "number" ? ctx.longitude : ctx.lng;
-             name = ctx.name;
-             address = ctx.address;
-             description = ctx.description;
-             category = ctx.category;
-             avgRating = ctx.avgRating;
-             reviewCount = ctx.reviewCount;
-             updatedAt = ctx.updatedAt;
-             createdAt = ctx.createdAt;
-             id = ctx.id;
-          } else {
-             rowLat = typeof item.latitude === "number" ? item.latitude : item.lat;
-             rowLng = typeof item.longitude === "number" ? item.longitude : item.lng;
-             name = item.name;
-             address = item.address;
-             description = item.description;
-             category = item.category;
-             avgRating = item.avgRating;
-             reviewCount = item.reviewCount;
-             updatedAt = item.updatedAt;
-             createdAt = item.createdAt;
-             id = item.id;
-          }
-
-          const lexical = tokenScore(tokens, `${name} ${address || ""} ${description || ""} ${category || ""}`);
-          const quality = Math.min((Number(avgRating || 0) / 5) * 0.7 + Math.min(Number(reviewCount || 0) / 100, 1) * 0.3, 1);
-          const nearbyScore = proximityScore(rowLat, rowLng, lat, lng);
-          if (nearby && nearbyScore <= 0) return null;
-
-          const score = lexical * 0.58 + quality * 0.24 + nearbyScore * 0.18;
-          return {
-            type: "place",
-            id: String(id),
-            title: String(name),
-            subtitle: `${category || "Place"} • ${Number(avgRating || 0).toFixed(1)}★`,
-            score: Number(score.toFixed(4)),
-            lat: rowLat,
-            lng: rowLng,
-            rating: Number(avgRating || 0),
-            createdAt: updatedAt || createdAt || null,
-          };
-        })
-        .filter(Boolean)
-        .sort((a: any, b: any) => b.score - a.score)
-        .slice(0, limit);
-
+      const items = await searchSuggest(
+        { q, world, userId, lat, lng, minRating, nearby, limit },
+        prisma,
+      );
       return sendSuccess(req, res, { items });
     } catch (err) {
       next(err);
@@ -299,122 +152,13 @@ export function createMobileRouter() {
 
       const { q, world, types, page, limit, lat, lng, minRating, nearby, recentDays } = parsed.data;
       const prisma = getPrisma();
-      const userId = Number((req as any).user?.id || 0);
-      const typeSet = new Set(types.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean));
-      const tokens = tokenize(q);
-      const recentDate = recentDays ? new Date(Date.now() - recentDays * 24 * 60 * 60 * 1000) : null;
+      const userId = Number((req as Request & { user?: { id: unknown } }).user?.id ?? 0);
 
-      const results: any[] = [];
-
-      if (typeSet.has("place")) {
-        const placeRows =
-          world === "private" && userId > 0
-            ? await prisma.collectionItem.findMany({
-                where: {
-                  collection: {
-                    userId,
-                    title: "Favorite Locations",
-                    isPublic: false,
-                  },
-                  article: {
-                    context: {
-                      OR: [{ name: { contains: q, mode: "insensitive" } }, { address: { contains: q, mode: "insensitive" } }]
-                    }
-                  }
-                },
-                include: { article: { include: { context: true } } },
-                take: 250,
-                orderBy: { addedAt: "desc" },
-              })
-            : await prisma.context.findMany({
-                where: {
-                  type: "PLACE",
-                  ...(minRating !== undefined ? { avgRating: { gte: minRating } } : {}),
-                  ...(recentDate ? { updatedAt: { gte: recentDate } } : {}),
-                  OR: [
-                    { name: { contains: q, mode: "insensitive" } },
-                    { description: { contains: q, mode: "insensitive" } },
-                    { address: { contains: q, mode: "insensitive" } },
-                    { category: { contains: q, mode: "insensitive" } },
-                  ],
-                },
-                take: 300,
-                orderBy: [{ isReviewed: "desc" }, { avgRating: "desc" }, { updatedAt: "desc" }],
-              });
-
-        for (const rawRow of placeRows as any[]) {
-          const row = rawRow.article?.context || rawRow;
-          const rowLat = typeof row.latitude === "number" ? row.latitude : row.lat;
-          const rowLng = typeof row.longitude === "number" ? row.longitude : row.lng;
-          const lexical = tokenScore(tokens, `${row.name} ${row.address || ""} ${row.description || ""} ${row.category || ""}`);
-          const quality = Math.min((Number(row.avgRating || 0) / 5) * 0.7 + Math.min(Number(row.reviewCount || 0) / 100, 1) * 0.3, 1);
-          const nearbyScore = proximityScore(rowLat, rowLng, lat, lng);
-          if (nearby && nearbyScore <= 0) continue;
-
-          const score = lexical * 0.55 + quality * 0.25 + nearbyScore * 0.20;
-          results.push({
-            type: "place",
-            id: String(row.id),
-            title: row.name,
-            subtitle: `${row.category || "Place"} • ${Number(row.avgRating || 0).toFixed(1)}★`,
-            score: Number(score.toFixed(4)),
-            location: rowLat != null && rowLng != null ? { lat: rowLat, lng: rowLng } : null,
-            meta: {
-              reviewCount: Number(row.reviewCount || 0),
-              visibility: world === "private" ? "PRIVATE" : "PUBLIC",
-            },
-          });
-        }
-      }
-
-      if (typeSet.has("article") && world === "open") {
-        const articleRows = await prisma.article.findMany({
-          where: {
-            ...(recentDate ? { createdAt: { gte: recentDate } } : {}),
-            OR: [{ title: { contains: q, mode: "insensitive" } }, { content: { contains: q, mode: "insensitive" } }],
-          },
-          include: {
-            author: { include: { profile: true } },
-            interactions: false,
-          },
-          take: 200,
-          orderBy: { createdAt: "desc" },
-        });
-
-        for (const article of articleRows) {
-          const lexical = tokenScore(tokens, `${article.title} ${article.content}`);
-          const engagement = Math.min((article.upvoteCount + article.viewCount * 0.08 + article.saveCount * 0.2) / 120, 1);
-          const ageDays = Math.max(0, Math.floor((Date.now() - new Date(article.createdAt).getTime()) / (24 * 60 * 60 * 1000)));
-          const freshness = Math.max(0, 1 - ageDays / 90);
-          const score = lexical * 0.6 + engagement * 0.25 + freshness * 0.15;
-
-          results.push({
-            type: "article",
-            id: String(article.id),
-            title: article.title,
-            subtitle: `${article.author?.profile?.displayName || article.author?.email || "Unknown"}`,
-            snippet: String(article.content || "").slice(0, 140),
-            score: Number(score.toFixed(4)),
-            location: null,
-            meta: {
-              visibility: "PUBLIC",
-            },
-          });
-        }
-      }
-
-      results.sort((a, b) => b.score - a.score);
-      const total = results.length;
-      const start = (page - 1) * limit;
-      const items = results.slice(start, start + limit);
-
-      return sendSuccess(req, res, {
-        query: q,
-        total,
-        page,
-        limit,
-        items,
-      });
+      const { items, total } = await searchFull(
+        { q, world, userId, types, page, limit, lat, lng, minRating, nearby, recentDays },
+        prisma,
+      );
+      return sendSuccess(req, res, { query: q, total, page, limit, items });
     } catch (err) {
       next(err);
     }
@@ -568,12 +312,15 @@ export function createMobileRouter() {
           }
         });
 
+        const visibility = parsed.data.visibility ?? "PUBLIC";
+
         if (review) {
           review = await prisma.article.update({
             where: { id: review.id },
             data: {
               content: parsed.data.content,
-              status: "PUBLISHED"
+              status: "PUBLISHED",
+              visibility,
             }
           });
         } else {
@@ -585,7 +332,8 @@ export function createMobileRouter() {
               slug: `review-${placeId}-${userId}-${Date.now()}`,
               content: parsed.data.content,
               title: `Review for Context ${placeId}`,
-              status: "PUBLISHED"
+              status: "PUBLISHED",
+              visibility,
             }
           });
         }
@@ -774,6 +522,127 @@ export function createMobileRouter() {
       next(err);
     }
   });
+
+  // ── Bookmarks: user's own posts by visibility ────────────────────────────
+  router.get("/articles/me", authenticate, async (req, res, next) => {
+    try {
+      const userId = Number((req as any).user?.id);
+      if (!userId) return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Unauthorized");
+
+      const visibility = (req.query.visibility as string | undefined) ?? "PUBLIC";
+      const page = Math.max(1, Number(req.query.page ?? 1));
+      const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+      const prisma = getPrisma();
+
+      const articles = await (prisma as any).article.findMany({
+        where: { authorId: userId, status: "PUBLISHED", visibility },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          visibility: true,
+          createdAt: true,
+          upvoteCount: true,
+          context: { select: { name: true, latitude: true, longitude: true } },
+          _count: {
+            select: {
+              interactions: { where: { type: "UPVOTE" } },
+              comments: true,
+            },
+          },
+        },
+      });
+
+      const items = articles.map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        visibility: a.visibility,
+        createdAt: a.createdAt,
+        likes: a.upvoteCount ?? a._count.interactions ?? 0,
+        comments: a._count.comments ?? 0,
+        shares: 0,
+        location: a.context?.latitude != null
+          ? { name: a.context.name, lat: a.context.latitude, lng: a.context.longitude }
+          : null,
+      }));
+
+      return sendSuccess(req, res, { items, page, limit });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ── Bookmarks: saved/shared posts (SAVE/SHARE interaction) ─────────────────────────────
+  router.get("/articles/saved", authenticate, async (req, res, next) => {
+    try {
+      const userId = Number((req as any).user?.id);
+      if (!userId) return sendError(req, res, 401, "ERR_UNAUTHORIZED", "Unauthorized");
+
+      const page = Math.max(1, Number(req.query.page ?? 1));
+      const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+      const interactionType = req.query.type === "SHARE" ? "SHARE" : "SAVE";
+      const prisma = getPrisma();
+
+      const saved = await (prisma as any).interaction.findMany({
+        where: { userId, type: interactionType },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          createdAt: true,
+          article: {
+            select: {
+              id: true,
+              title: true,
+              content: true,
+              visibility: true,
+              createdAt: true,
+              upvoteCount: true,
+              author: {
+                select: {
+                  profile: { select: { displayName: true, avatarUrl: true } },
+                  email: true,
+                },
+              },
+              context: { select: { name: true, latitude: true, longitude: true } },
+              _count: { select: { comments: true } },
+            },
+          },
+        },
+      });
+
+      const items = saved
+        .filter((s: any) => s.article?.visibility === "PUBLIC")
+        .map((s: any) => {
+          const a = s.article;
+          const authorName = a.author?.profile?.displayName || a.author?.email?.split("@")[0] || "Unknown";
+          const authorAvatar = a.author?.profile?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}`;
+          return {
+            id: a.id,
+            title: a.title,
+            content: a.content,
+            visibility: a.visibility,
+            createdAt: a.createdAt,
+            likes: a.upvoteCount ?? 0,
+            comments: a._count.comments ?? 0,
+            shares: 0,
+            author: { name: authorName, avatar: authorAvatar },
+            location: a.context?.latitude != null
+              ? { name: a.context.name, lat: a.context.latitude, lng: a.context.longitude }
+              : null,
+          };
+        });
+
+      return sendSuccess(req, res, { items, page, limit });
+    } catch (err) {
+      next(err);
+    }
+  });
+  // ─────────────────────────────────────────────────────────────────────────
 
   return router;
 }
