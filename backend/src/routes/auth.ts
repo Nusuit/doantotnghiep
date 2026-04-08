@@ -292,6 +292,22 @@ export function createAuthRouter() {
             },
           });
         }
+
+        // Upsert profile: fill displayName/avatarUrl from Google if not already set
+        const googleName = userData.name || userData.given_name || null;
+        const googlePicture = userData.picture || null;
+        await prisma.userProfile.upsert({
+          where: { userId: user.id },
+          create: {
+            userId: user.id,
+            displayName: googleName ?? "Google User",
+            avatarUrl: googlePicture,
+          },
+          update: {
+            ...((!user.profile?.displayName && googleName) ? { displayName: googleName } : {}),
+            ...((!user.profile?.avatarUrl && googlePicture) ? { avatarUrl: googlePicture } : {}),
+          },
+        });
       }
 
       if (["SUSPENDED", "BANNED"].includes(user.accountStatus)) {
