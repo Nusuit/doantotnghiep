@@ -38,6 +38,7 @@ export async function fetchFeed(limit = 20, cursor?: string): Promise<FeedRespon
   const response = await fetch(`${API_BASE_URL}/api/feed?${params.toString()}`, {
     headers: { "Content-Type": "application/json" },
     credentials: "include",
+    next: { revalidate: 30 },
   });
 
   if (!response.ok) {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { MapProvider, useMap } from "@/context/MapContext";
 import { MapControls, MapContainer } from "@/components/Map";
 import MapSearch, {
@@ -9,9 +10,10 @@ import MapSearch, {
     type RecentHistoryItem,
 } from "@/components/Map/MapSearch";
 import { getPoiMeta } from "@/components/Map/MapContainer";
-import { MapPin, Navigation2, X, Star, Route, Bookmark, MessageSquare, Loader2, Flag, CheckCircle2, Heart, Ban, Check, type LucideIcon } from "lucide-react";
+import { MapPin, Navigation2, X, Star, Bookmark, MessageSquare, Loader2, Flag, CheckCircle2, Heart, Ban, Check, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { fetchSavedPlaces, savePlace, unsavePlace, type SavedPlace } from "@/services/savedPlacesService";
+import { AddPlaceModal } from "@/components/Map/AddPlaceModal";
 
 const MapSkeleton = () => (
     <div className="w-full h-full bg-gray-100 dark:bg-dark-surface animate-pulse flex items-center justify-center">
@@ -222,6 +224,105 @@ const MapSavedMarkersSync: React.FC<{
     return null;
 };
 
+// ── MapDeepLinkHandler: flies to ?lat=&lng= query params on mount ─────────────
+const MapDeepLinkHandler: React.FC<{
+    onSelect: (poi: { name: string; lat: number; lng: number }) => void;
+}> = ({ onSelect }) => {
+    const { flyTo, isMapLoaded, addMarker } = useMap();
+    const searchParams = useSearchParams();
+    const handled = useRef(false);
+
+    useEffect(() => {
+        if (!isMapLoaded || handled.current) return;
+        const lat = parseFloat(searchParams.get("lat") ?? "");
+        const lng = parseFloat(searchParams.get("lng") ?? "");
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        handled.current = true;
+        const name = searchParams.get("name") ?? "Location";
+
+        // Fly to the location at a close zoom so the label is readable
+        flyTo({ longitude: lng, latitude: lat, zoom: 18 });
+
+        // Drop a prominent red pin so the user can see exactly where it is
+        addMarker({
+            id: "search-pin",
+            longitude: lng,
+            latitude: lat,
+            title: name,
+            type: "search-pin",
+            color: "#EA4335",
+        });
+
+        onSelect({ name, lat, lng });
+    }, [isMapLoaded, searchParams, flyTo, addMarker, onSelect]);
+
+    return null;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── MapAddPinSync: syncs pending (green) and confirmed (red) pins ─────────────
+const MapAddPinSync: React.FC<{
+    pendingPin: { lat: number; lng: number } | null;
+    confirmedPin: { lat: number; lng: number; name: string } | null;
+}> = ({ pendingPin, confirmedPin }) => {
+    const { addMarker, removeMarker } = useMap();
+
+    useEffect(() => {
+        if (pendingPin) {
+            addMarker({
+                id: "pending-add",
+                longitude: pendingPin.lng,
+                latitude: pendingPin.lat,
+                type: "search-pin",
+                color: "#22c55e",
+                title: "New place",
+            });
+        } else {
+            removeMarker("pending-add");
+        }
+    }, [pendingPin, addMarker, removeMarker]);
+
+    useEffect(() => {
+        if (confirmedPin) {
+            addMarker({
+                id: "confirmed-place",
+                longitude: confirmedPin.lng,
+                latitude: confirmedPin.lat,
+                type: "search-pin",
+                color: "#EA4335",
+                title: confirmedPin.name,
+            });
+        } else {
+            removeMarker("confirmed-place");
+        }
+    }, [confirmedPin, addMarker, removeMarker]);
+
+    return null;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── MapFlyToSync: flies the map to target coords when they change ─────────────
+const MapFlyToSync: React.FC<{
+    target: { lat: number; lng: number; zoom?: number } | null;
+}> = ({ target }) => {
+    const { flyTo } = useMap();
+    const prevTarget = useRef<typeof target>(null);
+
+    useEffect(() => {
+        if (!target) return;
+        if (
+            prevTarget.current?.lat === target.lat &&
+            prevTarget.current?.lng === target.lng
+        ) return;
+        prevTarget.current = target;
+        flyTo({ longitude: target.lng, latitude: target.lat, zoom: target.zoom ?? 16 });
+    }, [target, flyTo]);
+
+    return null;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function MapPage() {
     const [selectedPoi, setSelectedPoi] = useState<SelectedPoi | null>(null);
     // --- Saved places state ---
@@ -232,6 +333,21 @@ export default function MapPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const saveMenuRef = useRef<HTMLDivElement>(null);
+
+    // --- Add Place state ---
+    const [isAddingPlace, setIsAddingPlace] = useState(false);
+    const [pendingPin, setPendingPin] = useState<{ lat: number; lng: number } | null>(null);
+    const [confirmedPlacePin, setConfirmedPlacePin] = useState<{ lat: number; lng: number; name: string } | null>(null);
+    const [addPlaceModalOpen, setAddPlaceModalOpen] = useState(false);
+    const addPinDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
+
+    // Detect deep-link coordinates: if ?lat=&lng= are present, skip auto-geolocate
+    const hasDeepLink =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).has("lat") &&
+        new URLSearchParams(window.location.search).has("lng");
+
 
     // Load saved places once on mount
     useEffect(() => {
@@ -368,7 +484,7 @@ export default function MapPage() {
                         delete next[placeKey];
                         return next;
                     });
-                    toast.success("Removed from saved places");
+                    toast.success("Removed from favorites");
                 } else {
                     setSavedTagsByKey((prev) => ({
                         ...prev,
@@ -414,7 +530,7 @@ export default function MapPage() {
                     return next;
                 });
             }
-            toast.success("Removed from saved places");
+            toast.success("Removed from favorites");
         } catch (err) {
             console.error("[handleDeleteSaved]", err);
             toast.error("Could not remove saved place");
@@ -477,6 +593,23 @@ export default function MapPage() {
         setShowSaveMenu(false);
     }, []);
 
+    const handleMapClickForAdd = useCallback((e: any) => {
+        if (!isAddingPlace) return;
+        if (addPinDebounceRef.current) clearTimeout(addPinDebounceRef.current);
+        addPinDebounceRef.current = setTimeout(() => {
+            const { lat, lng } = e.lngLat;
+            setPendingPin({ lat, lng });
+        }, 200);
+    }, [isAddingPlace]);
+
+    const cancelAddPlace = useCallback(() => {
+        if (addPinDebounceRef.current) clearTimeout(addPinDebounceRef.current);
+        setIsAddingPlace(false);
+        setPendingPin(null);
+        setAddPlaceModalOpen(false);
+        setConfirmedPlacePin(null);
+    }, []);
+
     const poiMeta = selectedPoi ? getPoiMeta(selectedPoi.category || "") : null;
 
     return (
@@ -484,57 +617,100 @@ export default function MapPage() {
             <Suspense fallback={<MapSkeleton />}>
                 <MapProvider>
                     <MapSavedMarkersSync savedPlaces={savedPlaces} savedTagsByKey={savedTagsByKey} />
+                    <MapAddPinSync pendingPin={pendingPin} confirmedPin={confirmedPlacePin} />
+                    <MapFlyToSync target={flyToTarget} />
+                    <MapDeepLinkHandler onSelect={(poi) => { setSelectedPoi(poi); setShowSaveMenu(false); }} />
 
                     {/* 1. MAP AREA */}
                     <div className="flex-1 relative z-0">
                         <MapContainer
                             className="w-full h-full absolute inset-0"
-                            onPoiClick={(poi) => {
+                            interactivePinMode={isAddingPlace}
+                            autoGeolocate={!hasDeepLink}
+                            onClick={handleMapClickForAdd}
+                            onPoiClick={isAddingPlace ? undefined : (poi) => {
                                 setSelectedPoi(poi);
                                 setShowSaveMenu(false);
                             }}
                         />
 
                         {/* Top-left floating elements, optional search etc. */}
-                        <div className="absolute top-4 left-4 z-10 w-80">
-                            <MapSearch
-                                onResultSelect={(result) => {
-                                    // Make sure we select it so the panel opens and maps focus
-                                    setSelectedPoi({
-                                        name: result.name,
-                                        lat: result.coordinates[1],
-                                        lng: result.coordinates[0],
-                                        category: result.category,
-                                        address: result.address
-                                    });
-                                    setShowSaveMenu(false);
-                                }}
-                                onSavedPlaceDelete={handleDeleteSaved}
-                                onSavedPlaceSelect={(place) => {
-                                    setSelectedPoi({
-                                        name: place.name,
-                                        lat: place.coordinates.lat,
-                                        lng: place.coordinates.lng,
-                                        category: place.category,
-                                        address: place.address,
-                                    });
-                                    setShowSaveMenu(false);
-                                }}
-                                onRecentPlaceSelect={handleRecentPlaceSelect}
-                                onRecentHistoryEvent={handleRecentHistoryEvent}
-                                onRecentHistoryDelete={handleRecentHistoryDelete}
-                                onRecentHistoryClear={handleRecentHistoryClear}
-                                onRecentSearchesClear={handleRecentSearchesClear}
-                                deletingSavedId={deletingId}
-                                savedPlaceSections={savedPlaceSections}
-                                recentHistoryItems={recentHistoryItems}
-                            />
+                        <div className="absolute top-4 left-4 z-10 flex items-start gap-4 pointer-events-none">
+                            <div className="w-80 pointer-events-auto">
+                                <MapSearch
+                                    onResultSelect={(result) => {
+                                        // Make sure we select it so the panel opens and maps focus
+                                        setSelectedPoi({
+                                            name: result.name,
+                                            lat: result.coordinates[1],
+                                            lng: result.coordinates[0],
+                                            category: result.category,
+                                            address: result.address
+                                        });
+                                        setShowSaveMenu(false);
+                                    }}
+                                    onSavedPlaceDelete={handleDeleteSaved}
+                                    onSavedPlaceSelect={(place) => {
+                                        setSelectedPoi({
+                                            name: place.name,
+                                            lat: place.coordinates.lat,
+                                            lng: place.coordinates.lng,
+                                            category: place.category,
+                                            address: place.address,
+                                        });
+                                        setShowSaveMenu(false);
+                                    }}
+                                    onRecentPlaceSelect={handleRecentPlaceSelect}
+                                    onRecentHistoryEvent={handleRecentHistoryEvent}
+                                    onRecentHistoryDelete={handleRecentHistoryDelete}
+                                    onRecentHistoryClear={handleRecentHistoryClear}
+                                    onRecentSearchesClear={handleRecentSearchesClear}
+                                    deletingSavedId={deletingId}
+                                    savedPlaceSections={savedPlaceSections}
+                                    recentHistoryItems={recentHistoryItems}
+                                />
+                            </div>
+
+                            {/* Add Place FAB */}
+                            <div className="flex flex-col items-start gap-2 pointer-events-auto">
+                                {!isAddingPlace ? (
+                                    <button
+                                        onClick={() => setIsAddingPlace(true)}
+                                        className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 active:scale-95 text-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-sm font-medium transition-all"
+                                    >
+                                        <MapPin className="w-4 h-4" /> Add Place
+                                    </button>
+                                ) : (
+                                    <>
+                                        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800 animate-in fade-in slide-in-from-left-4">
+                                            {pendingPin ? "📍 Location set — confirm or tap to move" : "Tap the map to drop a pin"}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={cancelAddPlace}
+                                                className="px-4 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 dark:bg-[#1A1D24] dark:border-gray-800 dark:hover:bg-gray-800 rounded-lg text-sm transition-colors text-gray-700 dark:text-gray-300"
+                                            >
+                                                Cancel
+                                            </button>
+                                            {pendingPin && (
+                                                <button
+                                                    onClick={() => setAddPlaceModalOpen(true)}
+                                                    className="px-4 py-1.5 bg-green-500 hover:bg-green-600 active:scale-95 text-white rounded-lg shadow-md text-sm font-bold transition-all"
+                                                >
+                                                    Confirm Location →
+                                                </button>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
 
                         {/* Map controls bottom-right */}
-                        <div className={`absolute bottom-8 transition-all duration-300 z-10 right-4`}>
+                        <div className={`absolute bottom-8 transition-all duration-300 z-10 right-4 pointer-events-auto`}>
                             <MapControls />
                         </div>
+
                     </div>{/* end map area */}
 
                     {/* 2. SIDE PANEL (Slide Out Right) */}
@@ -550,6 +726,7 @@ export default function MapPage() {
                                         onClick={() => {
                                             setSelectedPoi(null);
                                             setShowSaveMenu(false);
+                                            setConfirmedPlacePin(null);
                                         }}
                                         className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
                                     >
@@ -570,11 +747,11 @@ export default function MapPage() {
                                         </span>
 
                                         {/* Mock stars (placeholder) */}
-                                        <div className="flex text-yellow-500 gap-0.5">
+                                        <div className="flex text-blue-500 dark:text-blue-400 gap-0.5">
                                             {[...Array(4)].map((_, i) => (
                                                 <Star key={i} size={14} className="fill-current" />
                                             ))}
-                                            <Star size={14} className="text-gray-300 dark:text-gray-600" />
+                                            <Star size={14} className="text-gray-200 dark:text-gray-700" />
                                         </div>
                                     </div>
 
@@ -591,11 +768,8 @@ export default function MapPage() {
                                         </div>
                                     )}
 
-                                    {/* Action Buttons */}
+                                    {/* Action Buttons — Favorite only */}
                                     <div className="flex gap-3">
-                                        <button className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2">
-                                            <Route size={18} /> Directions
-                                        </button>
 
                                         <div className="relative flex-1" ref={saveMenuRef}>
                                             <button
@@ -612,7 +786,7 @@ export default function MapPage() {
                                                 ) : (
                                                     <ActiveSaveIcon size={18} className={`${activeSaveIconClassName} ${activeSaveTag === "FAVORITE" ? "fill-current" : ""}`} />
                                                 )}
-                                                {activeSaveTag ? SAVE_TAGS[activeSaveTag].label : "Save"}
+                                                {activeSaveTag ? SAVE_TAGS[activeSaveTag].label : "Favorite"}
                                             </button>
 
                                             {showSaveMenu && (
@@ -694,6 +868,45 @@ export default function MapPage() {
                             </div>
                         )}
                     </div>
+                    {/* Add Place Modal */}
+                    {pendingPin && (
+                        <AddPlaceModal
+                            open={addPlaceModalOpen}
+                            onOpenChange={(open) => {
+                                setAddPlaceModalOpen(open);
+                                if (!open) cancelAddPlace();
+                            }}
+                            lat={pendingPin.lat}
+                            lng={pendingPin.lng}
+                            onSuccess={(place) => {
+                                cancelAddPlace();
+                                if (place.latitude && place.longitude) {
+                                    setConfirmedPlacePin({ lat: place.latitude, lng: place.longitude, name: place.name });
+                                    setFlyToTarget({ lat: place.latitude, lng: place.longitude, zoom: 17 });
+                                    setSelectedPoi({
+                                        name: place.name,
+                                        lat: place.latitude,
+                                        lng: place.longitude,
+                                        category: place.category ?? undefined,
+                                        address: place.address ?? undefined,
+                                    });
+                                }
+                            }}
+                            onViewExisting={(place) => {
+                                cancelAddPlace();
+                                if (place.latitude && place.longitude) {
+                                    setFlyToTarget({ lat: place.latitude, lng: place.longitude, zoom: 17 });
+                                    setSelectedPoi({
+                                        name: place.name,
+                                        lat: place.latitude,
+                                        lng: place.longitude,
+                                        category: place.category ?? undefined,
+                                        address: place.address ?? undefined,
+                                    });
+                                }
+                            }}
+                        />
+                    )}
                 </MapProvider>
             </Suspense>
         </div>

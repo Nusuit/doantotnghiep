@@ -254,7 +254,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false, // Ensure loading is false
       }));
     } catch (error) {
-      console.error("Auth refresh error:", error);
+      // TypeError "Failed to fetch" = backend not reachable (not running / still starting up)
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        console.warn("Backend unreachable — auth check skipped. Start the backend server.");
+      } else {
+        console.error("Auth refresh error:", error);
+      }
       // Do NOT call logout() here blindly, just set loading false
       setAuthState(prev => ({ ...prev, isLoading: false, isAuthenticated: false, user: null }));
     }

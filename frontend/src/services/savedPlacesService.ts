@@ -31,7 +31,10 @@ export async function savePlace(place: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(place),
   });
-  if (!res.ok) throw new Error("Could not save place");
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Could not save place");
+  }
   return parseApiResponse<SavedPlace>(res);
 }
 
@@ -40,5 +43,8 @@ export async function unsavePlace(favoriteId: string): Promise<void> {
     method: "DELETE",
     credentials: "include",
   });
-  if (!res.ok) throw new Error("Could not remove saved place");
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? "Could not remove saved place");
+  }
 }

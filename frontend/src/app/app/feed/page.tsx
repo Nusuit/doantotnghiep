@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PostCard } from "@/components/shared/PostCard";
 import { fetchFeed, FeedItem } from "@/services/feedService";
 import { useAuth } from "@/context/AuthContext";
@@ -19,9 +19,11 @@ function formatTime(iso: string) {
     return `${days}d ago`;
 }
 
-export default function FeedPage() {
+function FeedContent() {
     const { user } = useAuth(); // Prefer real auth user if available
     const router = useRouter(); // Use Next.js router
+    const searchParams = useSearchParams();
+    const focusedPostId = searchParams.get('focusedPostId');
     const [items, setItems] = useState<FeedItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
@@ -85,6 +87,17 @@ export default function FeedPage() {
             })),
         [items]
     );
+
+    const sortedPosts = useMemo(() => {
+        if (!focusedPostId) return posts;
+        const targetId = Number(focusedPostId);
+        const focusIdx = posts.findIndex(p => p.id === targetId);
+        if (focusIdx <= 0) return posts;
+        
+        const focusPost = posts[focusIdx];
+        const otherPosts = [...posts.slice(0, focusIdx), ...posts.slice(focusIdx + 1)];
+        return [focusPost, ...otherPosts];
+    }, [posts, focusedPostId]);
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pb-20">
@@ -154,7 +167,7 @@ export default function FeedPage() {
 
             {/* Posts */}
             <div className="space-y-6">
-                {posts.map((post) => (
+                {sortedPosts.map((post) => (
                     <PostCard key={post.id} post={post} />
                 ))}
             </div>
@@ -176,5 +189,13 @@ export default function FeedPage() {
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-300 dark:text-gray-700">Knowledge is infinite</span>
             </div>
         </div>
+    );
+}
+
+export default function FeedPage() {
+    return (
+        <Suspense fallback={<div className="text-center py-20 text-gray-500">Loading feed...</div>}>
+            <FeedContent />
+        </Suspense>
     );
 }
