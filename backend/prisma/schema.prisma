@@ -124,10 +124,15 @@ model Context {
   sourceRef   String?     @map("source_ref") @db.VarChar(128)
   description String?     @db.Text
   address     String?     @db.VarChar(500)
-  isReviewed  Boolean     @default(false) @map("is_reviewed")
-  reviewCount Int         @default(0) @map("review_count")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  isReviewed    Boolean @default(false) @map("is_reviewed")
+  reviewCount   Int     @default(0) @map("review_count")
+  // Search-computed columns (maintained by DB triggers — read-only from app)
+  canonicalName String? @map("canonical_name") @db.Text
+  cityName      String? @map("city_name") @db.Text
+  districtName  String? @map("district_name") @db.Text
+  wardName      String? @map("ward_name") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   articles        Article[]
   collectionItems CollectionItem[]
@@ -156,9 +161,12 @@ model Article {
   viewCount    Int           @default(0) @map("view_count")
   saveCount    Int           @default(0) @map("save_count")
   upvoteCount  Int           @default(0) @map("upvote_count")
-  isEvergreen  Boolean       @default(false) @map("is_evergreen")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  visibility      ArticleVisibility @default(PUBLIC) @map("visibility")
+  isEvergreen     Boolean @default(false) @map("is_evergreen")
+  // Search-computed column (maintained by DB trigger — read-only from app)
+  normalizedTitle String? @map("normalized_title") @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   context         Context           @relation(fields: [contextId], references: [id], onDelete: Restrict)
   author          User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -177,6 +185,9 @@ model Article {
   @@index([rankingScore(sort: Desc)], map: "idx_articles_ranking_score")
   @@index([status, tier, rankingScore(sort: Desc)], map: "idx_articles_feed")
   @@index([kvScore], map: "idx_articles_kv_score")
+  @@index([visibility], map: "idx_articles_visibility")
+  @@index([status, visibility, rankingScore(sort: Desc)], map: "idx_articles_feed_v2")
+  @@index([authorId, status, visibility, createdAt(sort: Desc)], map: "idx_articles_author_status_visibility")
   @@map("articles")
 }
 
@@ -283,6 +294,7 @@ model Interaction {
 
   @@index([articleId, type], map: "idx_interactions_article_type")
   @@index([userId, type], map: "idx_interactions_user_type")
+  @@index([userId, type, createdAt(sort: Desc)], map: "idx_interactions_user_type_created")
   @@index([userId], map: "idx_interactions_user_id")
   @@index([articleId], map: "idx_interactions_article_id")
   @@index([type], map: "idx_interactions_type")
@@ -449,6 +461,12 @@ enum KVScore {
   LOW
   MEDIUM
   HIGH
+}
+
+enum ArticleVisibility {
+  PUBLIC
+  PRIVATE
+  PREMIUM
 }
 
 enum ContextType {
