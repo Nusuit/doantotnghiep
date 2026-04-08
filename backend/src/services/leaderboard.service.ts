@@ -85,15 +85,18 @@ export class LeaderboardService {
 
         let currentUserData: LeaderboardEntry | null = null;
         if (currentUserId) {
-            // NOTE: We do NOT cache individual user lookups here as that would require per-user keys.
-            // For now, we only cache the heavy specific top-20 aggregation.
+            // Fetch user and their score in parallel, then count rank
             const currentUser = await this.prisma.user.findUnique({
                 where: { id: currentUserId },
-                include: { profile: true }
+                select: {
+                    reputationScore: true,
+                    email: true,
+                    profile: { select: { displayName: true, avatarUrl: true } }
+                }
             });
 
             if (currentUser) {
-                // Calculate Rank
+                // Now that we have reputationScore, count rank in parallel with nothing else needed
                 const rank = await this.prisma.user.count({
                     where: {
                         role: "USER",
