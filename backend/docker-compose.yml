@@ -29,6 +29,13 @@ services:
     image: postgres:16-alpine
     container_name: knowledge_db_container # Đặt tên cho dễ tìm
     restart: always
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c work_mem=16MB
+      -c effective_cache_size=1GB
+      -c random_page_cost=1.1
+      -c synchronous_commit=off
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123456
@@ -44,8 +51,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: knowledge_redis_container
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
     ports:
       - "6379:6379"
     restart: always
