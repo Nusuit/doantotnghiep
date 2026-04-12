@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { WalletAnalyticsModal } from '@/components/profile/WalletAnalyticsModal';
 import { GovernanceAnalyticsModal } from '@/components/profile/GovernanceAnalyticsModal';
+import { UserAvatar } from '@/components/shared/UserAvatar';
 
 const PROFILE_EXTRAS = {
     bio: "Researching the intersection of Zero-Knowledge Proofs and Epistemology. Building the verification layer for the permaweb.",
@@ -123,13 +124,7 @@ export default function ProfilePage() {
                     <div className="flex flex-col md:flex-row gap-8 w-full items-start">
                         {/* Identity Block */}
                         <div className="relative flex-shrink-0">
-                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center shadow-xl overflow-hidden">
-                                {profileUser.avatar ? (
-                                    <img src={profileUser.avatar} alt={profileUser.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <span className="text-3xl font-serif font-bold text-white tracking-wider">{getInitials(profileUser.name)}</span>
-                                )}
-                            </div>
+                            <UserAvatar name={profileUser.name} className="w-24 h-24 text-3xl font-serif font-bold border border-white/10 shadow-xl" />
                             <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-md border border-blue-400/50 font-mono shadow-lg">Scholar</div>
                         </div>
 
@@ -257,8 +252,8 @@ export default function ProfilePage() {
                         <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                             {SUGGESTED_PEERS.map(peer => (
                                 <div key={peer.id} className="min-w-[170px] bg-white dark:bg-[#161920] border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20 rounded-xl p-4 flex flex-col items-center text-center transition-all duration-300 hover:-translate-y-1 shadow-sm hover:shadow-lg">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border border-gray-200 dark:border-white/10 flex items-center justify-center mb-3 shadow-inner group cursor-pointer" onClick={() => router.push('/app/u/elena')}>
-                                        <span className="text-sm font-serif font-bold text-gray-700 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-300 transition-colors">{getInitials(peer.name)}</span>
+                                    <div className="mb-3 cursor-pointer" onClick={() => router.push('/app/u/elena')}>
+                                        <UserAvatar name={peer.name} className="w-12 h-12 text-sm font-serif font-bold border border-gray-200 dark:border-white/10 shadow-inner hover:opacity-80 transition-opacity" />
                                     </div>
                                     <div className="mb-1">
                                         <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate max-w-[140px] cursor-pointer hover:text-primary" onClick={() => router.push('/app/u/elena')}>{peer.name}</h4>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useWallet } from '@/hooks/useWallet';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { UserAvatar } from '../shared/UserAvatar';
 
 // --- MOCK NOTIFICATIONS ---
 const MOCK_NOTIFICATIONS = [
@@ -178,18 +179,7 @@ export const Header = () => {
                     href="/app/profile"
                     className="group relative overflow-hidden rounded-xl bg-gray-50/50 dark:bg-[#161b22] border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 pl-1 pr-4 py-1 transition-all duration-300 flex items-center gap-3"
                 >
-                    {/* User Initials Avatar (Circular) */}
-                    {avatarUrl ? (
-                        <img
-                            src={avatarUrl}
-                            alt={displayName}
-                            className="w-8 h-8 rounded-full object-cover shadow-inner ring-2 ring-white/20 dark:ring-white/10"
-                        />
-                    ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-inner ring-2 ring-white/20 dark:ring-white/10">
-                            {initials}
-                        </div>
-                    )}
+                    <UserAvatar name={displayName} className="w-8 h-8 text-xs shadow-inner ring-2 ring-white/20 dark:ring-white/10" />
 
                     {/* Info Stack */}
                     <div className="flex flex-col items-start">

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "next-themes";
 import { useQuickNote } from "@/context/QuickNoteContext";
+import { UserAvatar } from "../shared/UserAvatar";
 
 export const Sidebar = () => {
     const pathname = usePathname();
@@ -181,17 +182,7 @@ export const Sidebar = () => {
                         className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-dark-surface transition-all border border-transparent hover:border-gray-200 dark:hover:border-dark-border group"
                     >
                         {/* Monochromatic Initials or Avatar */}
-                        {avatarUrl ? (
-                            <img
-                                src={avatarUrl}
-                                alt={displayName}
-                                className="w-10 h-10 rounded-full object-cover ring-1 ring-gray-200 dark:ring-gray-700"
-                            />
-                        ) : (
-                            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-900 dark:text-white text-xs font-bold ring-1 ring-gray-200 dark:ring-gray-700">
-                                {initials}
-                            </div>
-                        )}
+                        <UserAvatar name={displayName} className="w-10 h-10 text-xs ring-1 ring-gray-200 dark:ring-gray-700" />
 
                         <div className="flex-1 text-left overflow-hidden">
                             <p className="text-sm font-bold text-gray-900 dark:text-white truncate">

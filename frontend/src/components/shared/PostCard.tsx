@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { enqueueView } from '@/lib/interactionBatcher';
 import { useAuth } from '@/context/AuthContext';
+import { UserAvatar } from './UserAvatar';
 
 interface PostCardProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -262,10 +263,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, readonly = false, comp
                         {/* Author row */}
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5 min-w-0">
-                                {avatarSrc
-                                    ? <Image src={avatarSrc} alt={avatarName ?? ""} width={32} height={32} className="rounded-full object-cover ring-1 ring-gray-200 dark:ring-white/10 shrink-0" />
-                                    : <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-gray-700 flex items-center justify-center text-white font-bold text-xs shrink-0">{(avatarName?.[0] ?? "?").toUpperCase()}</div>
-                                }
+                                <UserAvatar name={avatarName ?? "?"} className="w-8 h-8 text-xs shrink-0" />
                                 <div className="min-w-0">
                                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 block truncate">{avatarName}</span>
                                     <span className="text-[11px] text-gray-400 dark:text-gray-500">{post.timestamp}</span>
@@ -347,10 +345,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, readonly = false, comp
         <div ref={cardRef} className="bg-white dark:bg-dark-surface rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-visible mb-6 transition-all hover:shadow-md">
             <div className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    {post.author.avatar
-                        ? <Image src={post.author.avatar} alt={post.author.name} width={40} height={40} className="rounded-full object-cover" />
-                        : <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">{(post.author.name?.[0] ?? "?").toUpperCase()}</div>
-                    }
+                    <UserAvatar name={post.author.name} className="w-10 h-10 text-sm" />
                     <div>
                         <h3 className="font-bold text-gray-900 dark:text-white">{post.author.name}</h3>
                         <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">

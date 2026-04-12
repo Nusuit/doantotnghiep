@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import PlaceholderImage from "./PlaceholderImage";
+import { UserAvatar } from "../shared/UserAvatar";
 
 interface PostProps {
   id: string;
@@ -53,19 +54,7 @@ const Post: React.FC<PostProps> = ({
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-gray-300 overflow-hidden flex-shrink-0">
-              {author.avatar ? (
-                <img
-                  src={author.avatar}
-                  alt={author.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {author.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              )}
+              <UserAvatar name={author.name} className="w-full h-full text-sm" />
             </div>
             <div>
               <h3 className="font-semibold text-gray-900 text-sm">
