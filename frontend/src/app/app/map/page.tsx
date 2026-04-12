@@ -3,7 +3,7 @@
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { MapProvider, useMap } from "@/context/MapContext";
-import { MapControls, MapContainer } from "@/components/Map";
+import { MapContainer } from "@/components/Map";
 import MapSearch, {
     type SavedPlaceSection,
     type RecentHistoryEvent,
@@ -353,7 +353,7 @@ export default function MapPage() {
     useEffect(() => {
         fetchSavedPlaces()
             .then(setSavedPlaces)
-            .catch(() => {});
+            .catch(() => { });
     }, []);
 
     useEffect(() => {
@@ -440,11 +440,11 @@ export default function MapPage() {
         () =>
             selectedPoi
                 ? savedPlaces.find(
-                      (p) =>
-                          p.name === selectedPoi.name &&
-                          Math.abs(p.coordinates.lat - selectedPoi.lat) < 0.0001 &&
-                          Math.abs(p.coordinates.lng - selectedPoi.lng) < 0.0001
-                  ) ?? null
+                    (p) =>
+                        p.name === selectedPoi.name &&
+                        Math.abs(p.coordinates.lat - selectedPoi.lat) < 0.0001 &&
+                        Math.abs(p.coordinates.lng - selectedPoi.lng) < 0.0001
+                ) ?? null
                 : null,
         [selectedPoi, savedPlaces]
     );
@@ -676,21 +676,22 @@ export default function MapPage() {
                                 {!isAddingPlace ? (
                                     <button
                                         onClick={() => setIsAddingPlace(true)}
-                                        className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 active:scale-95 text-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-sm font-medium transition-all"
+                                        className="flex items-center gap-2 px-5 h-[54px] bg-green-500 hover:bg-green-600 active:scale-95 text-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-sm font-medium transition-all"
                                     >
                                         <MapPin className="w-4 h-4" /> Add Place
                                     </button>
                                 ) : (
                                     <>
-                                        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800 animate-in fade-in slide-in-from-left-4">
+                                        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] px-5 h-[54px] flex items-center text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800 animate-in fade-in slide-in-from-left-4">
                                             {pendingPin ? "📍 Location set — confirm or tap to move" : "Tap the map to drop a pin"}
                                         </div>
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={cancelAddPlace}
-                                                className="px-4 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 dark:bg-[#1A1D24] dark:border-gray-800 dark:hover:bg-gray-800 rounded-lg text-sm transition-colors text-gray-700 dark:text-gray-300"
+                                                title="Cancel"
+                                                className="w-[34px] h-[34px] flex items-center justify-center bg-red-500 hover:bg-red-600 active:scale-95 text-white rounded-lg transition-all shadow-sm"
                                             >
-                                                Cancel
+                                                <X className="w-4 h-4 text-white" strokeWidth={2.5} />
                                             </button>
                                             {pendingPin && (
                                                 <button
@@ -706,10 +707,7 @@ export default function MapPage() {
                             </div>
                         </div>
 
-                        {/* Map controls bottom-right */}
-                        <div className={`absolute bottom-8 transition-all duration-300 z-10 right-4 pointer-events-auto`}>
-                            <MapControls />
-                        </div>
+                        {/* Map controls removed */}
 
                     </div>{/* end map area */}
 
@@ -775,11 +773,10 @@ export default function MapPage() {
                                             <button
                                                 onClick={() => setShowSaveMenu((prev) => !prev)}
                                                 disabled={isSaving}
-                                                className={`w-full py-2.5 border rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-60 ${
-                                                    activeSaveTag
-                                                        ? SAVE_TAGS[activeSaveTag].buttonClassName
-                                                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-[#1A1D24] text-gray-700 dark:text-gray-200"
-                                                }`}
+                                                className={`w-full py-2.5 border rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-60 ${activeSaveTag
+                                                    ? SAVE_TAGS[activeSaveTag].buttonClassName
+                                                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-[#1A1D24] text-gray-700 dark:text-gray-200"
+                                                    }`}
                                             >
                                                 {isSaving ? (
                                                     <Loader2 size={16} className="animate-spin" />
@@ -800,11 +797,10 @@ export default function MapPage() {
                                                                 <button
                                                                     key={tag}
                                                                     onClick={() => void handleSaveAction(tag)}
-                                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                                                                        isActive
-                                                                            ? "bg-gray-100 dark:bg-white/10 font-bold"
-                                                                            : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300"
-                                                                    }`}
+                                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive
+                                                                        ? "bg-gray-100 dark:bg-white/10 font-bold"
+                                                                        : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300"
+                                                                        }`}
                                                                 >
                                                                     <TagIcon
                                                                         size={18}

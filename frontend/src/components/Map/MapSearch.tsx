@@ -19,9 +19,11 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Layers,
+  Map as MapIcon,
 } from "lucide-react";
 import { type SavedPlace } from "@/services/savedPlacesService";
-import { useMap } from "../Map";
+import { useMap, MAP_STYLES } from "../Map";
 
 export type SavedPlaceSectionIcon = "flag" | "visited" | "favorite" | "avoid";
 
@@ -56,7 +58,7 @@ export interface RecentHistoryEvent {
   longitude?: number;
 }
 
-type DrawerTab = "main" | "saved" | "recents" | "contributions";
+type DrawerTab = "main" | "saved" | "recents" | "contributions" | "map_style";
 
 const RECENT_PREVIEW_MARKER_PREFIX = "recent-history-preview-";
 const THREE_DAYS_IN_MS = 3 * 24 * 60 * 60 * 1000;
@@ -214,7 +216,7 @@ const MapSearch: React.FC<MapSearchProps> = ({
   const [sessionToken, setSessionToken] = useState(generateUUID());
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { flyTo, addMarker, removeMarker, mapRef, markers } = useMap();
+  const { flyTo, addMarker, removeMarker, mapRef, markers, mapStyle, setMapStyle } = useMap();
   const mapboxAccessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
   const totalSavedPlaces = savedPlaceSections.reduce((total, section) => total + section.places.length, 0);
 
@@ -884,6 +886,79 @@ const MapSearch: React.FC<MapSearchProps> = ({
               <div className="text-xs text-gray-500 dark:text-gray-400">Manage reviews & edits</div>
             </div>
           </button>
+
+          <button
+            onClick={() => setActiveDrawerTab("map_style")}
+            className="w-full flex items-center gap-4 p-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors text-left"
+          >
+            <Layers size={24} className="text-gray-400" />
+            <div>
+              <div className="text-sm font-bold text-gray-900 dark:text-white">Map Style</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Change appearance</div>
+            </div>
+          </button>
+        </div>
+      );
+    }
+
+    if (activeDrawerTab === "map_style") {
+      return (
+        <div className="h-full flex flex-col">
+          <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2">
+            <button
+              onClick={() => setActiveDrawerTab("main")}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300"
+              title="Back"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Map Style</h3>
+          </div>
+
+          <div className="flex-1 p-2 space-y-1 overflow-y-auto custom-scrollbar">
+            {[
+              { id: MAP_STYLES.CUSTOM, label: 'Default', desc: 'Original map experience. Hold "Ctrl + drag" for 3D view.' },
+              { id: MAP_STYLES.STREETS, label: 'Streets', desc: 'Detailed street network and transit routes.' },
+              { id: MAP_STYLES.LIGHT, label: 'Light', desc: 'Clean, light-colored map for daytime viewing.' },
+              { id: MAP_STYLES.DARK, label: 'Dark', desc: 'High-contrast dark mode map for nighttime.' },
+              { id: MAP_STYLES.SATELLITE, label: 'Satellite', desc: 'High-resolution global satellite imagery.' },
+              { id: MAP_STYLES.OUTDOORS, label: 'Outdoors', desc: 'Topographic map tailored for outdoor activities.' }
+            ].map(style => {
+              const isSelected = mapStyle === style.id;
+              return (
+                <button
+                  key={style.id}
+                  onClick={() => setMapStyle(style.id)}
+                  className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 ${
+                    isSelected 
+                      ? 'bg-gray-100/80 dark:bg-white/10' 
+                      : 'hover:bg-gray-50/50 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors duration-200 ${
+                    isSelected 
+                      ? 'border-gray-900 dark:border-white' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}>
+                    {isSelected && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-gray-900 dark:bg-white" />
+                    )}
+                  </div>
+                  
+                  <div className="text-left flex-1">
+                    <div className={`text-sm font-semibold tracking-wide ${
+                      isSelected ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                    }`}>
+                      {style.label}
+                    </div>
+                    <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1 leading-snug">
+                      {style.desc}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       );
     }
