@@ -98,6 +98,8 @@ export default function ProfilePage() {
     const [showWalletAnalytics, setShowWalletAnalytics] = useState(false);
     const [showGovAnalytics, setShowGovAnalytics] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [showUtilityBalance, setShowUtilityBalance] = useState(true);
+    const [showGovBalance, setShowGovBalance] = useState(true);
 
     const formatNumber = (num?: number) => {
         if (!num) return '0';
@@ -283,64 +285,74 @@ export default function ProfilePage() {
 
             {/* 2-COLUMN LAYOUT: Sidebar + Main Content */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                
+
                 {/* LEFT SIDEBAR */}
                 <div className="lg:col-span-1 space-y-4">
-                    
+
                     {/* Card 1: Utility */}
-                    <div 
+                    <div
                         onClick={() => setShowWalletAnalytics(true)}
                         className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-blue-500/30 cursor-pointer transition-all shadow-sm group"
                     >
-                        <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined text-2xl">bolt</span>
-                        </div>
+                        <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform flex-shrink-0" style={{fontSize: '36px', fontVariationSettings: "'FILL' 1"}}>bolt</span>
                         <div className="flex-1">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Utility</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Utility</p>
+                                <span className="text-[10px] font-bold text-white">+12%</span>
+                            </div>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">{profileUser.balance_u || 1240}</span>
+                                <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">
+                                    {showUtilityBalance ? (profileUser.balance_u || 1240) : '••••'}
+                                </span>
                                 <span className="text-xs text-gray-400">U</span>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <span className="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 px-2 py-1 rounded">+12%</span>
-                        </div>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowUtilityBalance(!showUtilityBalance); }}
+                            className="text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0 p-1"
+                        >
+                            <span className="material-symbols-outlined text-xl">{showUtilityBalance ? 'visibility' : 'visibility_off'}</span>
+                        </button>
                     </div>
 
                     {/* Card 2: Governance */}
-                    <div 
+                    <div
                         onClick={() => setShowGovAnalytics(true)}
                         className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-purple-500/30 cursor-pointer transition-all shadow-sm group"
                     >
-                        <div className="w-12 h-12 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined text-2xl">token</span>
-                        </div>
+                        <span className="material-symbols-outlined text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform flex-shrink-0" style={{fontSize: '36px'}}>token</span>
                         <div className="flex-1">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Governance</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Governance</p>
+                                <span className="text-[10px] font-bold text-white">5.7k VP</span>
+                            </div>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">{profileUser.balance_g || 1500}</span>
+                                <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">
+                                    {showGovBalance ? (profileUser.balance_g || 1500) : '••••'}
+                                </span>
                                 <span className="text-xs text-gray-400">G</span>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded">5.7k VP</span>
-                        </div>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowGovBalance(!showGovBalance); }}
+                            className="text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0 p-1"
+                        >
+                            <span className="material-symbols-outlined text-xl">{showGovBalance ? 'visibility' : 'visibility_off'}</span>
+                        </button>
                     </div>
 
                     {/* Card 3: Reputation */}
                     <div className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl p-5 flex items-center gap-4 shadow-sm group">
-                        <div className="w-12 h-12 rounded-full bg-yellow-50 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 dark:text-yellow-400 group-hover:rotate-12 transition-transform">
-                            <span className="material-symbols-outlined text-2xl">workspace_premium</span>
-                        </div>
+                        <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 group-hover:rotate-12 transition-transform flex-shrink-0" style={{fontSize: '36px'}}>workspace_premium</span>
                         <div className="flex-1">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Reputation</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Reputation</p>
+                                <span className="text-[10px] font-bold text-white">Scholar</span>
+                            </div>
                             <div className="flex items-baseline gap-1">
                                 <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">850</span>
                                 <span className="text-xs text-gray-400">KS</span>
                             </div>
-                        </div>
-                        <div className="text-right">
-                            <span className="text-[10px] font-bold text-yellow-700 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-500/10 px-2 py-1 rounded">Scholar</span>
                         </div>
                     </div>
 
@@ -348,7 +360,7 @@ export default function ProfilePage() {
 
                 {/* RIGHT MAIN CONTENT */}
                 <div className="lg:col-span-3">
-                    
+
                     {/* CONTENT HISTORY */}
                     <div className="bg-white dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl overflow-visible min-h-[400px]">
                         <div className="flex border-b border-gray-200 dark:border-gray-700">
@@ -367,236 +379,236 @@ export default function ProfilePage() {
                         </div>
                         <div>
                             <div className="overflow-visible min-h-[200px]">{/* Filter Tabs for Contributions */}
-                        {activeTab === 'contributions' && (
-                            <div className="px-4 pt-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-gray-100 dark:border-gray-800/50">
-                                {[
-                                    { id: 'all', label: 'All', icon: 'layers' },
-                                    { id: 'premium', label: 'Premium', icon: 'diamond', color: 'text-purple-500 dark:text-purple-400' },
-                                    { id: 'public', label: 'Public', icon: 'public', color: 'text-blue-500 dark:text-blue-400' },
-                                    { id: 'private', label: 'Private', icon: 'lock', color: 'text-gray-400' }
-                                ].map((filter) => (
-                                    <button
-                                        key={filter.id}
-                                        onClick={() => setContributionFilter(filter.id as any)}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${contributionFilter === filter.id
-                                            ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-white/20'
-                                            : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-700 dark:hover:text-gray-300'
-                                            }`}
-                                    >
-                                        <span className={`material-symbols-outlined text-[16px] ${(filter as any).color || ''}`}>{filter.icon}</span>
-                                        {filter.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                                {activeTab === 'contributions' && (
+                                    <div className="px-4 pt-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-gray-100 dark:border-gray-800/50">
+                                        {[
+                                            { id: 'all', label: 'All', icon: 'layers' },
+                                            { id: 'premium', label: 'Premium', icon: 'diamond', color: 'text-purple-500 dark:text-purple-400' },
+                                            { id: 'public', label: 'Public', icon: 'public', color: 'text-blue-500 dark:text-blue-400' },
+                                            { id: 'private', label: 'Private', icon: 'lock', color: 'text-gray-400' }
+                                        ].map((filter) => (
+                                            <button
+                                                key={filter.id}
+                                                onClick={() => setContributionFilter(filter.id as any)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${contributionFilter === filter.id
+                                                    ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-white/20'
+                                                    : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-700 dark:hover:text-gray-300'
+                                                    }`}
+                                            >
+                                                <span className={`material-symbols-outlined text-[16px] ${(filter as any).color || ''}`}>{filter.icon}</span>
+                                                {filter.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
 
-                        {activeTab === 'reservations' ? (
-                            <table className="w-full">
-                                <thead className="text-xs uppercase text-gray-500 font-bold border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left">Entity</th>
-                                        <th className="px-6 py-4 text-center">Time Remaining</th>
-                                        <th className="px-6 py-4 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
-                                    {reservations.map((res) => (
-                                        <tr key={res.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                                            <td className="px-6 py-5">
-                                                <div className="flex flex-col">
-                                                    <span className="font-serif font-bold text-gray-900 dark:text-white text-lg leading-tight mb-1">{res.entity}</span>
-                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-gray-800 w-fit px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">{res.category}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5 text-center">
-                                                <span className="font-mono font-bold text-cyan-600 dark:text-cyan-500 text-base border border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/10 px-3 py-1 rounded-md">
-                                                    {res.timeLeft}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-5 text-right">
-                                                <div className="flex justify-end gap-3">
-                                                    <button
-                                                        className="text-xs font-bold text-gray-500 hover:text-red-500 px-3 py-2 rounded transition-colors uppercase tracking-wider"
-                                                    >
-                                                        Release
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleWriteReservation(res)}
-                                                        className="bg-gray-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase tracking-wider px-6 py-2 rounded-xl hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors shadow-lg"
-                                                    >
-                                                        Write Now
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <table className="w-full">
-                                <thead className="text-xs uppercase text-gray-500 font-bold border-b border-gray-200 dark:border-gray-700">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left w-16">ID</th>
-                                        <th className="px-4 py-3 text-left">Description</th>
-                                        <th className="px-4 py-3 text-center w-32">Date</th>
-                                        <th className="px-4 py-3 text-center w-28">Status</th>
-                                        <th className="px-4 py-3 text-right w-40">Earnings/Reward</th>
-                                        <th className="px-4 py-3 text-right w-12"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
-                                    {filteredHistory.length > 0 ? filteredHistory.map((item) => (
-                                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
-                                            <td className="px-4 py-4 font-mono text-gray-400 dark:text-gray-500 text-xs">#{item.id}</td>
-                                            <td className="px-4 py-4 font-bold text-gray-900 dark:text-white">
-                                                <div className="flex items-center gap-3">
-                                                    {/* Status Icon */}
-                                                    {item.type === 'contribution' && (
-                                                        <div title={item.content_type === 'premium' ? 'Premium Content' : item.visibility === 'private' ? 'Private Draft' : 'Public Content'}>
-                                                            {item.content_type === 'premium' ? (
-                                                                <span className="material-symbols-outlined text-purple-500 dark:text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">diamond</span>
-                                                            ) : item.visibility === 'private' ? (
-                                                                <span className="material-symbols-outlined text-gray-400 dark:text-gray-500">lock</span>
-                                                            ) : (
-                                                                <span className="material-symbols-outlined text-blue-500 dark:text-blue-400">public</span>
+                                {activeTab === 'reservations' ? (
+                                    <table className="w-full">
+                                        <thead className="text-xs uppercase text-gray-500 font-bold border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                                            <tr>
+                                                <th className="px-6 py-4 text-left">Entity</th>
+                                                <th className="px-6 py-4 text-center">Time Remaining</th>
+                                                <th className="px-6 py-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
+                                            {reservations.map((res) => (
+                                                <tr key={res.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                                    <td className="px-6 py-5">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-serif font-bold text-gray-900 dark:text-white text-lg leading-tight mb-1">{res.entity}</span>
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-gray-800 w-fit px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">{res.category}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-5 text-center">
+                                                        <span className="font-mono font-bold text-cyan-600 dark:text-cyan-500 text-base border border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/10 px-3 py-1 rounded-md">
+                                                            {res.timeLeft}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-5 text-right">
+                                                        <div className="flex justify-end gap-3">
+                                                            <button
+                                                                className="text-xs font-bold text-gray-500 hover:text-red-500 px-3 py-2 rounded transition-colors uppercase tracking-wider"
+                                                            >
+                                                                Release
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleWriteReservation(res)}
+                                                                className="bg-gray-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase tracking-wider px-6 py-2 rounded-xl hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors shadow-lg"
+                                                            >
+                                                                Write Now
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <table className="w-full">
+                                        <thead className="text-xs uppercase text-gray-500 font-bold border-b border-gray-200 dark:border-gray-700">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left w-16">ID</th>
+                                                <th className="px-4 py-3 text-left">Description</th>
+                                                <th className="px-4 py-3 text-center w-32">Date</th>
+                                                <th className="px-4 py-3 text-center w-28">Status</th>
+                                                <th className="px-4 py-3 text-right w-40">Earnings/Reward</th>
+                                                <th className="px-4 py-3 text-right w-12"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
+                                            {filteredHistory.length > 0 ? filteredHistory.map((item) => (
+                                                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                                    <td className="px-4 py-4 font-mono text-gray-400 dark:text-gray-500 text-xs">#{item.id}</td>
+                                                    <td className="px-4 py-4 font-bold text-gray-900 dark:text-white">
+                                                        <div className="flex items-center gap-3">
+                                                            {/* Status Icon */}
+                                                            {item.type === 'contribution' && (
+                                                                <div title={item.content_type === 'premium' ? 'Premium Content' : item.visibility === 'private' ? 'Private Draft' : 'Public Content'}>
+                                                                    {item.content_type === 'premium' ? (
+                                                                        <span className="material-symbols-outlined text-purple-500 dark:text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">diamond</span>
+                                                                    ) : item.visibility === 'private' ? (
+                                                                        <span className="material-symbols-outlined text-gray-400 dark:text-gray-500">lock</span>
+                                                                    ) : (
+                                                                        <span className="material-symbols-outlined text-blue-500 dark:text-blue-400">public</span>
+                                                                    )}
+                                                                </div>
                                                             )}
-                                                        </div>
-                                                    )}
-                                                    {item.type === 'proposal' && (
-                                                        <div>
-                                                            <span className="material-symbols-outlined text-cyan-500 dark:text-cyan-400">campaign</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex flex-col">
-                                                        <span>{item.title}</span>
-                                                        {item.content_type === 'premium' && (
-                                                            <div className="flex items-center gap-2 mt-1">
-                                                                <span className="text-[10px] uppercase font-bold text-purple-600 dark:text-purple-400 tracking-wider">Premium Exclusive</span>
-                                                                <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700" title="Visible Public Hint">
-                                                                    <span className="material-symbols-outlined text--[10px]">visibility</span> Hint Visible
-                                                                </span>
+                                                            {item.type === 'proposal' && (
+                                                                <div>
+                                                                    <span className="material-symbols-outlined text-cyan-500 dark:text-cyan-400">campaign</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex flex-col">
+                                                                <span>{item.title}</span>
+                                                                {item.content_type === 'premium' && (
+                                                                    <div className="flex items-center gap-2 mt-1">
+                                                                        <span className="text-[10px] uppercase font-bold text-purple-600 dark:text-purple-400 tracking-wider">Premium Exclusive</span>
+                                                                        <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700" title="Visible Public Hint">
+                                                                            <span className="material-symbols-outlined text--[10px]">visibility</span> Hint Visible
+                                                                        </span>
+                                                                    </div>
+                                                                )}
                                                             </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">{item.date}</td>
+                                                    <td className="px-4 py-4 text-center">
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${item.status === 'Approved' || item.status === 'Active' || item.status === 'Passed' ? 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400' :
+                                                            item.status === 'Pending' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' :
+                                                                item.status === 'Draft' ? 'bg-gray-200 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400' :
+                                                                    item.status.includes('Voted') ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' :
+                                                                        'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300'
+                                                            }`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-4 text-right font-mono">
+                                                        {item.content_type === 'premium' ? (
+                                                            <div className="flex flex-col items-end">
+                                                                <span className="text-green-600 dark:text-green-400 font-bold">{item.reward}</span>
+                                                                <span className="text-[10px] text-gray-500 dark:text-gray-400">{item.unlocks} unlocks</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-green-600 dark:text-green-400">{item.reward}</span>
                                                         )}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">{item.date}</td>
-                                            <td className="px-4 py-4 text-center">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${item.status === 'Approved' || item.status === 'Active' || item.status === 'Passed' ? 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400' :
-                                                    item.status === 'Pending' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' :
-                                                        item.status === 'Draft' ? 'bg-gray-200 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400' :
-                                                            item.status.includes('Voted') ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' :
-                                                                'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300'
-                                                    }`}>
-                                                    {item.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-4 text-right font-mono">
-                                                {item.content_type === 'premium' ? (
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-green-600 dark:text-green-400 font-bold">{item.reward}</span>
-                                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">{item.unlocks} unlocks</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-green-600 dark:text-green-400">{item.reward}</span>
-                                                )}
-                                            </td>
-                                            <td className="px-2 py-4 text-right relative">
-                                                <button
-                                                    onClick={(e) => toggleMenu(e, item.id)}
-                                                    className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-                                                >
-                                                    <span className="material-symbols-outlined text-lg">more_vert</span>
-                                                </button>
+                                                    </td>
+                                                    <td className="px-2 py-4 text-right relative">
+                                                        <button
+                                                            onClick={(e) => toggleMenu(e, item.id)}
+                                                            className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                                                        >
+                                                            <span className="material-symbols-outlined text-lg">more_vert</span>
+                                                        </button>
 
-                                                {/* Dropdown Menu */}
-                                                {openMenuRowId === item.id && (
-                                                    <div className="absolute right-8 top-8 w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
-                                                        {item.type === 'contribution' && (
-                                                            <>
-                                                                {item.visibility === 'private' ? (
-                                                                    /* Private / Draft Logic */
+                                                        {/* Dropdown Menu */}
+                                                        {openMenuRowId === item.id && (
+                                                            <div className="absolute right-8 top-8 w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
+                                                                {item.type === 'contribution' && (
                                                                     <>
-                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center gap-2 transition-colors">
-                                                                            <span className="material-symbols-outlined text-sm">public</span> Publish (Make Public)
-                                                                        </button>
-                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                                                                            <span className="material-symbols-outlined text-sm">edit_square</span> Edit Post
-                                                                        </button>
-                                                                    </>
-                                                                ) : (
-                                                                    /* Public Logic */
-                                                                    <>
-                                                                        {item.content_type === 'standard' ? (
+                                                                        {item.visibility === 'private' ? (
+                                                                            /* Private / Draft Logic */
                                                                             <>
-                                                                                {/* Standard Public */}
-                                                                                <button
-                                                                                    onClick={() => handleUpgradeClick(item.id)}
-                                                                                    className="w-full text-left px-4 py-3 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center gap-2 transition-colors"
-                                                                                >
-                                                                                    <span className="material-symbols-outlined text-sm">diamond</span> Upgrade to Premium
-                                                                                </button>
-                                                                                <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                                                                                    <span className="material-symbols-outlined text-sm">visibility_off</span> Make Private
+                                                                                <button className="w-full text-left px-4 py-3 text-xs font-bold text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center gap-2 transition-colors">
+                                                                                    <span className="material-symbols-outlined text-sm">public</span> Publish (Make Public)
                                                                                 </button>
                                                                                 <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
                                                                                     <span className="material-symbols-outlined text-sm">edit_square</span> Edit Post
                                                                                 </button>
                                                                             </>
                                                                         ) : (
+                                                                            /* Public Logic */
                                                                             <>
-                                                                                {/* Premium Public */}
-                                                                                <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                                                                                    <span className="material-symbols-outlined text-sm">edit_note</span> Edit Public Hint
-                                                                                </button>
-                                                                                <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                                                                                    <span className="material-symbols-outlined text-sm">price_change</span> Change Price
-                                                                                </button>
-                                                                                <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                                                                                    <span className="material-symbols-outlined text-sm">public</span> Switch to Standard
-                                                                                </button>
-                                                                                <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                                                                                    <span className="material-symbols-outlined text-sm">visibility_off</span> Make Private
-                                                                                </button>
+                                                                                {item.content_type === 'standard' ? (
+                                                                                    <>
+                                                                                        {/* Standard Public */}
+                                                                                        <button
+                                                                                            onClick={() => handleUpgradeClick(item.id)}
+                                                                                            className="w-full text-left px-4 py-3 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center gap-2 transition-colors"
+                                                                                        >
+                                                                                            <span className="material-symbols-outlined text-sm">diamond</span> Upgrade to Premium
+                                                                                        </button>
+                                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                                                                                            <span className="material-symbols-outlined text-sm">visibility_off</span> Make Private
+                                                                                        </button>
+                                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                                                                                            <span className="material-symbols-outlined text-sm">edit_square</span> Edit Post
+                                                                                        </button>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        {/* Premium Public */}
+                                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                                                                                            <span className="material-symbols-outlined text-sm">edit_note</span> Edit Public Hint
+                                                                                        </button>
+                                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                                                                                            <span className="material-symbols-outlined text-sm">price_change</span> Change Price
+                                                                                        </button>
+                                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                                                                                            <span className="material-symbols-outlined text-sm">public</span> Switch to Standard
+                                                                                        </button>
+                                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                                                                                            <span className="material-symbols-outlined text-sm">visibility_off</span> Make Private
+                                                                                        </button>
+                                                                                    </>
+                                                                                )}
                                                                             </>
                                                                         )}
                                                                     </>
                                                                 )}
-                                                            </>
-                                                        )}
-                                                        {item.type === 'proposal' && (
-                                                            <>
-                                                                <button onClick={() => router.push('/app/governance')} className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                                                                    <span className="material-symbols-outlined text-sm">open_in_new</span> View Details
+                                                                {item.type === 'proposal' && (
+                                                                    <>
+                                                                        <button onClick={() => router.push('/app/governance')} className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                                                                            <span className="material-symbols-outlined text-sm">open_in_new</span> View Details
+                                                                        </button>
+                                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                                                                            <span className="material-symbols-outlined text-sm">share</span> Share Proposal
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                                <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
+                                                                <button className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors">
+                                                                    <span className="material-symbols-outlined text-sm">delete</span> Delete
                                                                 </button>
-                                                                <button className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-                                                                    <span className="material-symbols-outlined text-sm">share</span> Share Proposal
-                                                                </button>
-                                                            </>
+                                                            </div>
                                                         )}
-                                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
-                                                        <button className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors">
-                                                            <span className="material-symbols-outlined text-sm">delete</span> Delete
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan={6} className="text-center py-12 text-gray-500">
-                                                <span className="material-symbols-outlined text-4xl mb-2 opacity-30">filter_list_off</span>
-                                                <p>No activity found for this filter.</p>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
+                                                    </td>
+                                                </tr>
+                                            )) : (
+                                                <tr>
+                                                    <td colSpan={6} className="text-center py-12 text-gray-500">
+                                                        <span className="material-symbols-outlined text-4xl mb-2 opacity-30">filter_list_off</span>
+                                                        <p>No activity found for this filter.</p>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-                    
+
                 </div>
 
             </div>
