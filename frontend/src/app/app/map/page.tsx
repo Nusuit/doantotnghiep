@@ -2,7 +2,7 @@
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { MapProvider, useMap } from "@/context/MapContext";
+import { MapProvider, useMap, MAP_STYLES } from "@/context/MapContext";
 import { MapContainer } from "@/components/Map";
 import MapSearch, {
     type SavedPlaceSection,
@@ -300,7 +300,37 @@ const MapAddPinSync: React.FC<{
 
     return null;
 };
-// ─────────────────────────────────────────────────────────────────────────────
+const Map3DHint = () => {
+    const { mapStyle } = useMap();
+    const [isExpanded, setIsExpanded] = useState(false);
+    
+    if (mapStyle !== MAP_STYLES.CUSTOM) return null;
+
+    return (
+        <div className="absolute bottom-8 right-4 z-10 animate-in fade-in slide-in-from-bottom-2 duration-700 pointer-events-auto">
+            <button 
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`flex items-center bg-black/70 backdrop-blur-sm text-white rounded-full shadow-lg border border-white/10 transition-all duration-300 overflow-hidden ${
+                    isExpanded ? 'px-3 py-1.5 max-w-[280px]' : 'w-8 h-8 justify-center hover:bg-black/80'
+                }`}
+            >
+                <div className="shrink-0 flex items-center justify-center">
+                    <svg className={`${isExpanded ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-blue-400`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                    </svg>
+                </div>
+                
+                <div className={`transition-all duration-300 flex items-center ${
+                    isExpanded ? 'opacity-100 translate-x-2' : 'opacity-0 translate-x-10 w-0 pointer-events-none'
+                }`}>
+                    <span className="text-[10px] font-medium whitespace-nowrap pr-1">
+                        Hold <span className="bg-white/20 px-1 rounded mx-0.5 border border-white/10">Ctrl</span> + drag for 3D
+                    </span>
+                </div>
+            </button>
+        </div>
+    );
+};
 
 // ── MapFlyToSync: flies the map to target coords when they change ─────────────
 const MapFlyToSync: React.FC<{
@@ -708,6 +738,7 @@ export default function MapPage() {
                         </div>
 
                         {/* Map controls removed */}
+                        <Map3DHint />
 
                     </div>{/* end map area */}
 

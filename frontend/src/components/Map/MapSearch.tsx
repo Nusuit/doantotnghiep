@@ -928,7 +928,7 @@ const MapSearch: React.FC<MapSearchProps> = ({
               return (
                 <button
                   key={style.id}
-                  onClick={() => setMapStyle(style.id)}
+                  onClick={() => setMapStyle(style.id as string)}
                   className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 ${
                     isSelected 
                       ? 'bg-gray-100/80 dark:bg-white/10' 
